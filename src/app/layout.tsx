@@ -1,27 +1,34 @@
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
+import { Inter } from 'next/font/google';
+import { AuthProvider } from '@/hooks/use-auth';
+import { headers } from 'next/headers';
 
 export const metadata: Metadata = {
-  title: 'Photo Poet',
-  description: 'Generate beautiful poems from your photos.',
+  title: 'LoanFlow',
+  description: 'A mini-app for handling loan applications and processing.',
 };
 
-export default function RootLayout({
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const nonce = headers().get('x-nonce') || '';
+  
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={`${inter.variable} h-full`}>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;700&family=Belleza&display=swap" rel="stylesheet" />
+        <meta httpEquiv="Content-Security-Policy" content={`script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`} />
       </head>
-      <body className="font-body antialiased">
-        {children}
-        <Toaster />
+      <body className="font-body antialiased h-full bg-background">
+        <AuthProvider>
+            {children}  
+            <Toaster />
+        </AuthProvider>
       </body>
     </html>
   );

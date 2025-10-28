@@ -1,20 +1,18 @@
-# **App Name**: Photo Poet
+# **App Name**: LoanFlow Mini
 
 ## Core Features:
 
-- Image Upload: Allow users to upload an image from their device or paste a URL.
-- AI Poem Generation: Use a generative AI model to analyze the image and create a poem based on its content.
-- Poem Refinement Tool: LLM tool that examines the generated poem to see whether there's opportunity to replace prosaic vocabulary or phrasings with richer vocabulary or stronger images. Let the LLM decide if the poem would be enhanced.
-- Poem Display: Display the generated poem with appropriate formatting and styling.
-- Customization: Allow users to customize the poem's style, tone, and length.
-- Poem Saving & Sharing: Allow users to save generated poems locally or share them on social media.
+- Provider Selection: Display a list of available loan providers.
+- Product Display: Show a list of loan products offered by the selected provider.
+- Eligibility and Offer: Simulate eligibility check and provide loan amount range.  Uses a tool to determine eligibility based on limited user data, so that the rest of the MVP flow can function
+- Terms Calculation: Calculate and display service fee, interest rate, due date, and penalty amount based on user-entered loan amount.
+- Loan Detail View: Present a summary of loan details including type, amount, interest, fees, due date and repayment status in a detail view.
 
 ## Style Guidelines:
 
-- Primary color: Soft Lavender (#E6E6FA) to evoke creativity and tranquility.
-- Background color: Light Gray (#F0F0F0) for a clean, unobtrusive backdrop.
-- Accent color: Pale Green (#98FB98) for interactive elements.
-- Headline font: 'Belleza', a humanist sans-serif, to convey artistic expression. Body font: 'Alegreya', a humanist serif for readability of poems and user-interface elements.
-- Use line icons related to poetry and imagery. For example, a feather, inkwell, or camera.
-- Maintain a clean, uncluttered layout with generous spacing to enhance readability and visual appeal.
-- Use subtle animations such as fading transitions and gentle parallax scrolling effects to enhance the user experience without being distracting.
+- Primary color: A muted, professional blue (#6699CC) to inspire confidence.
+- Background color: Very light, desaturated blue-gray (#F0F4F7) to create a clean backdrop.
+- Accent color: A warm, contrasting orange (#E67700) for calls to action and key information highlights.
+- Body and headline font: 'Inter', a sans-serif font that is modern, objective and suitable for displaying data.
+- Use clear and concise icons to represent loan types, status, and important actions.
+- Maintain a clean, organized layout to prioritize information clarity, particularly in the Loan Detail View.
