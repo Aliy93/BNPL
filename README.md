@@ -1,3 +1,4 @@
+
 # LoanFlow - Micro-Credit Platform
 
 This application is a multi-provider micro-credit platform built with Next.js, Prisma, and Tailwind CSS. It provides a comprehensive solution for managing the entire loan lifecycle, from provider configuration to borrower application and repayment.
