@@ -9,6 +9,46 @@ const updateBorrowerStatusSchema = z.object({
   status: z.string(),
 });
 
+export async function GET(req: NextRequest) {
+    try {
+        const borrowers = await prisma.borrower.findMany({
+            include: {
+                provisionedData: {
+                    orderBy: {
+                        createdAt: 'desc'
+                    },
+                    take: 1 // Get the most recent provisioned data
+                }
+            },
+            orderBy: {
+                id: 'asc'
+            }
+        });
+
+        const formattedBorrowers = borrowers.map(borrower => {
+            let name = `Borrower ${borrower.id}`;
+            if (borrower.provisionedData.length > 0) {
+                const data = JSON.parse(borrower.provisionedData[0].data as string);
+                const nameKey = Object.keys(data).find(k => k.toLowerCase() === 'fullname' || k.toLowerCase() === 'full name');
+                if (nameKey && data[nameKey]) {
+                    name = data[nameKey];
+                }
+            }
+            return {
+                id: borrower.id,
+                name: name
+            };
+        });
+
+        return NextResponse.json(formattedBorrowers);
+
+    } catch (error) {
+        console.error('Failed to fetch borrowers:', error);
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    }
+}
+
+
 export async function PUT(req: NextRequest) {
     const session = await getSession();
     if (!session?.userId) {
