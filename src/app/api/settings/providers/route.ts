@@ -12,11 +12,13 @@ const defaultLedgerAccounts = [
     { name: 'Interest Receivable', type: 'Receivable', category: 'Interest' },
     { name: 'Service Fee Receivable', type: 'Receivable', category: 'ServiceFee' },
     { name: 'Penalty Receivable', type: 'Receivable', category: 'Penalty' },
+    { name: 'Tax Receivable', type: 'Receivable', category: 'Tax' },
     // Cash / Received
     { name: 'Principal Received', type: 'Received', category: 'Principal' },
     { name: 'Interest Received', type: 'Received', category: 'Interest' },
     { name: 'Service Fee Received', type: 'Received', category: 'ServiceFee' },
     { name: 'Penalty Received', type: 'Received', category: 'Penalty' },
+    { name: 'Tax Received', type: 'Received', category: 'Tax' },
     // Income
     { name: 'Interest Income', type: 'Income', category: 'Interest' },
     { name: 'Service Fee Income', type: 'Income', category: 'ServiceFee' },
@@ -89,7 +91,7 @@ export async function PUT(req: NextRequest) {
         const { id, ...dataToUpdate } = body;
         
         if (!id) {
-            return NextResponse.json({ error: 'Provider ID is required for update.' }, { status: 400 });
+            return NextResponse.json({ error: 'Financing partner ID is required for update.' }, { status: 400 });
         }
         
         const logDetails = { providerId: id, updatedFields: Object.keys(dataToUpdate) };
@@ -134,7 +136,7 @@ export async function DELETE(req: NextRequest) {
     
     try {
         if (!id) {
-            throw new Error('Provider ID is required');
+            throw new Error('Financing partner ID is required');
         }
 
         const logDetails = { providerId: id };
@@ -143,7 +145,7 @@ export async function DELETE(req: NextRequest) {
         
         const productCount = await prisma.loanProduct.count({ where: { providerId: id } });
         if (productCount > 0) {
-            throw new Error('Cannot delete provider with associated products.');
+            throw new Error('Cannot delete financing partner with associated products.');
         }
 
         const providerToDelete = await prisma.loanProvider.findUnique({ where: { id }});
@@ -156,7 +158,7 @@ export async function DELETE(req: NextRequest) {
         await createAuditLog({ actorId: session.userId, action: 'PROVIDER_DELETE_SUCCESS', entity: 'PROVIDER', entityId: id, details: successLogDetails, ipAddress, userAgent });
         console.log(JSON.stringify({ ...successLogDetails, timestamp: new Date().toISOString(), action: 'PROVIDER_DELETE_SUCCESS', actorId: session.userId }));
 
-        return NextResponse.json({ message: 'Provider deleted successfully' });
+        return NextResponse.json({ message: 'Financing partner deleted successfully' });
     } catch (error) {
         const errorMessage = (error as Error).message;
         const failureLogDetails = { providerId: id, error: errorMessage };

@@ -13,7 +13,7 @@ export async function GET(
   const providerId = searchParams.get('providerId');
 
   if (!borrowerId || !providerId) {
-    return NextResponse.json({ error: 'Customer ID and Provider ID are required.' }, { status: 400 });
+    return NextResponse.json({ error: 'Customer ID and Financing Partner ID are required.' }, { status: 400 });
   }
 
   try {
@@ -31,7 +31,7 @@ export async function GET(
     }
     
     if (!provider) {
-        return NextResponse.json({ error: 'Provider not found.' }, { status: 404 });
+        return NextResponse.json({ error: 'Financing partner not found.' }, { status: 404 });
     }
 
     if (!provider.products || provider.products.length === 0) {

@@ -158,7 +158,7 @@ function UsersTab() {
             <Card>
                 <CardHeader>
                     <CardTitle>Users</CardTitle>
-                    <CardDescription>Manage registered users and their roles.</CardDescription>
+                    <CardDescription>Manage registered users and their assigned roles.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Table>
@@ -167,7 +167,7 @@ function UsersTab() {
                                 <TableHead>Full Name</TableHead>
                                 <TableHead>Email</TableHead>
                                 <TableHead>Role</TableHead>
-                                <TableHead>Provider</TableHead>
+                                <TableHead>Financing Partner</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead>Actions</TableHead>
                             </TableRow>

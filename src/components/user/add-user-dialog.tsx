@@ -110,7 +110,7 @@ export function AddUserDialog({ isOpen, onClose, onSave, user, roles, providers,
         if (providers.length > 0) {
             submissionData.providerId = providers[0].id;
         } else {
-            alert('A loan provider must be selected for this role.');
+            alert('A financing partner must be selected for this role.');
             return;
         }
     }
@@ -175,11 +175,11 @@ export function AddUserDialog({ isOpen, onClose, onSave, user, roles, providers,
           {isProviderRole && (
              <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="providerId" className="text-right">
-                    Provider
+                    Partner
                 </Label>
                 <Select onValueChange={handleSelectChange('providerId')} value={formData.providerId || ''}>
                     <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Select a provider" />
+                        <SelectValue placeholder="Select a financing partner" />
                     </SelectTrigger>
                     <SelectContent>
                         {providers.map(provider => (
