@@ -8,18 +8,19 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHeader, TableHead, TableRow } from '@/components/ui/table';
-import { cn } from '@/lib/utils';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface Borrower {
     id: string;
-    name: string;
+    [key: string]: any; // Allow for dynamic properties from provisioned data
 }
 
 export default function SelectCustomerPage() {
-    const [selectedBorrowerId, setSelectedBorrowerId] = useState('');
+    const [selectedBorrowerId, setSelectedBorrowerId] = useState<string | undefined>(undefined);
     const [borrowers, setBorrowers] = useState<Borrower[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [headers, setHeaders] = useState<string[]>([]);
     const router = useRouter();
     const { toast } = useToast();
 
@@ -30,8 +31,29 @@ export default function SelectCustomerPage() {
                 if (!response.ok) {
                     throw new Error('Failed to fetch borrowers');
                 }
-                const data = await response.json();
+                const data: Borrower[] = await response.json();
                 setBorrowers(data);
+
+                // Dynamically create headers from all keys found in the data, excluding 'id'
+                if (data.length > 0) {
+                    const allKeys = new Set<string>();
+                    data.forEach(borrower => {
+                        Object.keys(borrower).forEach(key => {
+                            if (key !== 'id') {
+                                allKeys.add(key);
+                            }
+                        });
+                    });
+                     // Prioritize 'fullName' if it exists
+                    const sortedKeys = Array.from(allKeys).sort((a, b) => {
+                        if (a === 'fullName') return -1;
+                        if (b === 'fullName') return 1;
+                        if (a.toLowerCase().includes('name')) return -1;
+                        if (b.toLowerCase().includes('name')) return 1;
+                        return a.localeCompare(b);
+                    });
+                    setHeaders(sortedKeys);
+                }
             } catch (error) {
                 toast({
                     title: "Error",
@@ -48,7 +70,7 @@ export default function SelectCustomerPage() {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedBorrowerId.trim()) {
+        if (!selectedBorrowerId) {
             toast({
                 title: "Borrower Required",
                 description: "Please select a borrower from the table.",
@@ -58,12 +80,18 @@ export default function SelectCustomerPage() {
         }
         setIsLoading(true);
         // Redirect to the main loan dashboard with the borrower ID
-        router.push(`/loan?borrowerId=${selectedBorrowerId.trim()}`);
+        router.push(`/loan?borrowerId=${selectedBorrowerId}`);
     };
+    
+    // Function to format header titles (e.g., camelCase to Title Case)
+    const formatHeader = (header: string) => {
+        const result = header.replace(/([A-Z])/g, ' $1');
+        return result.charAt(0).toUpperCase() + result.slice(1);
+    }
 
     return (
         <div className="flex items-center justify-center min-h-screen bg-muted/40">
-            <Card className="w-full max-w-lg">
+            <Card className="w-full max-w-4xl">
                 <CardHeader className="text-center">
                     <CardTitle className="text-2xl">Start Your Loan Application</CardTitle>
                     <CardDescription>
@@ -72,35 +100,45 @@ export default function SelectCustomerPage() {
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        <ScrollArea className="h-72 w-full rounded-md border">
+                        <ScrollArea className="h-96 w-full rounded-md border">
                              <Table>
-                                <TableHeader>
+                                <TableHeader className="sticky top-0 bg-background z-10">
                                     <TableRow>
-                                        <TableHead>Borrower Name</TableHead>
+                                        <TableHead className="w-[50px]"></TableHead>
                                         <TableHead>Borrower ID</TableHead>
+                                        {headers.map(header => (
+                                            <TableHead key={header}>{formatHeader(header)}</TableHead>
+                                        ))}
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {isLoading ? (
                                         <TableRow>
-                                            <TableCell colSpan={2} className="h-24 text-center">
+                                            <TableCell colSpan={headers.length + 2} className="h-24 text-center">
                                                 <Loader2 className="h-6 w-6 animate-spin mx-auto"/>
                                             </TableCell>
                                         </TableRow>
                                     ) : borrowers.length > 0 ? (
-                                        borrowers.map((borrower) => (
-                                            <TableRow 
-                                                key={borrower.id}
-                                                onClick={() => setSelectedBorrowerId(borrower.id)}
-                                                className={cn("cursor-pointer", selectedBorrowerId === borrower.id && "bg-muted")}
-                                            >
-                                                <TableCell className="font-medium">{borrower.name}</TableCell>
-                                                <TableCell>{borrower.id}</TableCell>
-                                            </TableRow>
-                                        ))
+                                        <RadioGroup value={selectedBorrowerId} onValueChange={setSelectedBorrowerId} asChild>
+                                            <>
+                                                {borrowers.map((borrower) => (
+                                                    <TableRow key={borrower.id}>
+                                                        <TableCell className="text-center">
+                                                            <RadioGroupItem value={borrower.id} id={borrower.id} />
+                                                        </TableCell>
+                                                        <TableCell>{borrower.id}</TableCell>
+                                                        {headers.map(header => (
+                                                            <TableCell key={`${borrower.id}-${header}`}>
+                                                                {borrower[header] !== undefined ? String(borrower[header]) : 'N/A'}
+                                                            </TableCell>
+                                                        ))}
+                                                    </TableRow>
+                                                ))}
+                                            </>
+                                        </RadioGroup>
                                     ) : (
                                         <TableRow>
-                                            <TableCell colSpan={2} className="h-24 text-center">
+                                            <TableCell colSpan={headers.length + 2} className="h-24 text-center">
                                                 No borrowers found.
                                             </TableCell>
                                         </TableRow>

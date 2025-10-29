@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getSession } from '@/lib/session';
 import { z } from 'zod';
+import { toCamelCase } from '@/lib/utils';
+
 
 const updateBorrowerStatusSchema = z.object({
   borrowerId: z.string(),
@@ -13,11 +15,10 @@ export async function GET(req: NextRequest) {
     try {
         const borrowers = await prisma.borrower.findMany({
             include: {
-                provisionedData: {
+                provisionedData: { // Fetch all provisioned data for each borrower
                     orderBy: {
                         createdAt: 'desc'
-                    },
-                    take: 1 // Get the most recent provisioned data
+                    }
                 }
             },
             orderBy: {
@@ -26,17 +27,24 @@ export async function GET(req: NextRequest) {
         });
 
         const formattedBorrowers = borrowers.map(borrower => {
-            let name = `Borrower ${borrower.id}`;
-            if (borrower.provisionedData.length > 0) {
-                const data = JSON.parse(borrower.provisionedData[0].data as string);
-                const nameKey = Object.keys(data).find(k => k.toLowerCase() === 'fullname' || k.toLowerCase() === 'full name');
-                if (nameKey && data[nameKey]) {
-                    name = data[nameKey];
+            // Merge all provisioned data for a borrower into a single object
+            const combinedData = borrower.provisionedData.reduce((acc, entry) => {
+                try {
+                    const parsedData = JSON.parse(entry.data as string);
+                    // Standardize keys to camelCase for consistency
+                    const standardizedData: Record<string, any> = {};
+                    for (const key in parsedData) {
+                        standardizedData[toCamelCase(key)] = parsedData[key];
+                    }
+                    return { ...acc, ...standardizedData };
+                } catch {
+                    return acc;
                 }
-            }
+            }, {});
+
             return {
                 id: borrower.id,
-                name: name
+                ...combinedData,
             };
         });
 
