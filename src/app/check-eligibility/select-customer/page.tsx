@@ -111,39 +111,37 @@ export default function SelectCustomerPage() {
                                         ))}
                                     </TableRow>
                                 </TableHeader>
-                                <TableBody>
-                                    {isLoading ? (
-                                        <TableRow>
-                                            <TableCell colSpan={headers.length + 2} className="h-24 text-center">
-                                                <Loader2 className="h-6 w-6 animate-spin mx-auto"/>
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : borrowers.length > 0 ? (
-                                        <RadioGroup value={selectedBorrowerId} onValueChange={setSelectedBorrowerId} asChild>
-                                            <>
-                                                {borrowers.map((borrower) => (
-                                                    <TableRow key={borrower.id}>
-                                                        <TableCell className="text-center">
-                                                            <RadioGroupItem value={borrower.id} id={borrower.id} />
+                                <RadioGroup value={selectedBorrowerId} onValueChange={setSelectedBorrowerId} asChild>
+                                    <TableBody>
+                                        {isLoading ? (
+                                            <TableRow>
+                                                <TableCell colSpan={headers.length + 2} className="h-24 text-center">
+                                                    <Loader2 className="h-6 w-6 animate-spin mx-auto"/>
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : borrowers.length > 0 ? (
+                                            borrowers.map((borrower) => (
+                                                <TableRow key={borrower.id}>
+                                                    <TableCell className="text-center">
+                                                        <RadioGroupItem value={borrower.id} id={borrower.id} />
+                                                    </TableCell>
+                                                    <TableCell>{borrower.id}</TableCell>
+                                                    {headers.map(header => (
+                                                        <TableCell key={`${borrower.id}-${header}`}>
+                                                            {borrower[header] !== undefined ? String(borrower[header]) : 'N/A'}
                                                         </TableCell>
-                                                        <TableCell>{borrower.id}</TableCell>
-                                                        {headers.map(header => (
-                                                            <TableCell key={`${borrower.id}-${header}`}>
-                                                                {borrower[header] !== undefined ? String(borrower[header]) : 'N/A'}
-                                                            </TableCell>
-                                                        ))}
-                                                    </TableRow>
-                                                ))}
-                                            </>
-                                        </RadioGroup>
-                                    ) : (
-                                        <TableRow>
-                                            <TableCell colSpan={headers.length + 2} className="h-24 text-center">
-                                                No borrowers found.
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
+                                                    ))}
+                                                </TableRow>
+                                            ))
+                                        ) : (
+                                            <TableRow>
+                                                <TableCell colSpan={headers.length + 2} className="h-24 text-center">
+                                                    No borrowers found.
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </RadioGroup>
                             </Table>
                         </ScrollArea>
                         <Button type="submit" className="w-full" disabled={isLoading || !selectedBorrowerId}>
