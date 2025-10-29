@@ -39,7 +39,7 @@ export async function processAutomatedRepayments(): Promise<{ success: boolean; 
     const taxConfig = await prisma.tax.findFirst();
 
     // 1. Find all unpaid loans that are overdue
-    const overdueLoans = await prisma.loan.findMany({
+    const overdueInstallments = await prisma.loan.findMany({
         where: {
             repaymentStatus: 'Unpaid',
             dueDate: {
@@ -59,14 +59,14 @@ export async function processAutomatedRepayments(): Promise<{ success: boolean; 
         },
     });
 
-    if (overdueLoans.length === 0) {
-        console.log('No overdue loans found.');
-        return { success: true, message: 'No overdue loans to process.', processedCount: 0 };
+    if (overdueInstallments.length === 0) {
+        console.log('No overdue installment plans found.');
+        return { success: true, message: 'No overdue installment plans to process.', processedCount: 0 };
     }
 
     let processedCount = 0;
 
-    for (const loan of overdueLoans) {
+    for (const loan of overdueInstallments) {
         const { total, principal, interest, penalty, serviceFee } = calculateTotalRepayable(loan as any, loan.product, taxConfig, today);
         const alreadyRepaid = loan.repaidAmount || 0;
         const totalDue = total - alreadyRepaid;
@@ -104,16 +104,18 @@ export async function processAutomatedRepayments(): Promise<{ success: boolean; 
                             providerId: provider.id,
                             loanId: loan.id,
                             date: today,
-                            description: `Automated repayment for loan ${loan.id}`,
+                            description: `Automated repayment for installment plan ${loan.id}`,
                         }
                     });
                     
                     let paymentAmount = totalDue;
 
+                    // Deconstruct the total due into components based on what's outstanding
                     const penaltyDue = Math.max(0, penalty - (loan.repaidAmount || 0));
                     const serviceFeeDue = Math.max(0, serviceFee - Math.max(0, (loan.repaidAmount || 0) - penalty));
                     const interestDue = Math.max(0, interest - Math.max(0, (loan.repaidAmount || 0) - penalty - serviceFee));
 
+                    // Apply payment according to priority: Penalty -> Service Fee -> Interest -> Principal
                     const penaltyToPay = Math.min(paymentAmount, penaltyDue);
                     if (penaltyToPay > 0) {
                         await tx.ledgerAccount.update({ where: { id: penaltyReceivable.id }, data: { balance: { decrement: penaltyToPay } } });
@@ -147,6 +149,7 @@ export async function processAutomatedRepayments(): Promise<{ success: boolean; 
                         paymentAmount -= interestToPay;
                     }
                     
+                    // The rest is principal
                     const principalToPay = paymentAmount;
                      if (principalToPay > 0) {
                         await tx.ledgerAccount.update({ where: { id: principalReceivable.id }, data: { balance: { decrement: principalToPay } } });
@@ -157,6 +160,7 @@ export async function processAutomatedRepayments(): Promise<{ success: boolean; 
                         ]});
                     }
                     
+                    // Create payment record
                     await tx.payment.create({
                         data: {
                             loanId: loan.id,
@@ -167,6 +171,7 @@ export async function processAutomatedRepayments(): Promise<{ success: boolean; 
                         },
                     });
 
+                    // Update loan status
                     await tx.loan.update({
                         where: { id: loan.id },
                         data: {
@@ -178,11 +183,11 @@ export async function processAutomatedRepayments(): Promise<{ success: boolean; 
                 
                 processedCount++;
                 const logDetails = {
-                    loanId: loan.id,
-                    borrowerId: loan.borrowerId,
+                    installmentPlanId: loan.id,
+                    customerId: loan.borrowerId,
                     amount: totalDue
                 };
-                await createAuditLog({ actorId: 'system', action: 'AUTOMATED_REPAYMENT_SUCCESS', entity: 'LOAN', entityId: loan.id, details: logDetails });
+                await createAuditLog({ actorId: 'system', action: 'AUTOMATED_REPAYMENT_SUCCESS', entity: 'INSTALLMENT_PLAN', entityId: loan.id, details: logDetails });
                 console.log(JSON.stringify({
                     action: 'AUTOMATED_REPAYMENT_SUCCESS',
                     actorId: 'system',
@@ -191,11 +196,11 @@ export async function processAutomatedRepayments(): Promise<{ success: boolean; 
 
             } catch (error) {
                 const failureDetails = {
-                    loanId: loan.id,
-                    borrowerId: loan.borrowerId,
+                    installmentPlanId: loan.id,
+                    customerId: loan.borrowerId,
                     error: (error as Error).message
                 };
-                await createAuditLog({ actorId: 'system', action: 'AUTOMATED_REPAYMENT_FAILURE', entity: 'LOAN', entityId: loan.id, details: failureDetails });
+                await createAuditLog({ actorId: 'system', action: 'AUTOMATED_REPAYMENT_FAILURE', entity: 'INSTALLMENT_PLAN', entityId: loan.id, details: failureDetails });
                  console.error(JSON.stringify({
                     action: 'AUTOMATED_REPAYMENT_FAILURE',
                     actorId: 'system',
@@ -204,12 +209,12 @@ export async function processAutomatedRepayments(): Promise<{ success: boolean; 
             }
         } else {
             const skipDetails = {
-                loanId: loan.id,
-                borrowerId: loan.borrowerId,
+                installmentPlanId: loan.id,
+                customerId: loan.borrowerId,
                 balance: borrowerBalance,
                 amountDue: totalDue
             };
-            await createAuditLog({ actorId: 'system', action: 'AUTOMATED_REPAYMENT_SKIPPED', entity: 'LOAN', entityId: loan.id, details: { reason: 'Insufficient funds', ...skipDetails } });
+            await createAuditLog({ actorId: 'system', action: 'AUTOMATED_REPAYMENT_SKIPPED', entity: 'INSTALLMENT_PLAN', entityId: loan.id, details: { reason: 'Insufficient funds', ...skipDetails } });
              console.log(JSON.stringify({
                 action: 'AUTOMATED_REPAYMENT_SKIPPED',
                 actorId: 'system',
@@ -219,6 +224,6 @@ export async function processAutomatedRepayments(): Promise<{ success: boolean; 
         }
     }
     
-    console.log(`Automated repayment process finished. Processed ${processedCount} loans.`);
-    return { success: true, message: `Processed ${overdueLoans.length} overdue loans, successfully repaid ${processedCount}.`, processedCount };
+    console.log(`Automated repayment process finished. Processed ${processedCount} installment plans.`);
+    return { success: true, message: `Processed ${overdueInstallments.length} overdue plans, successfully repaid ${processedCount}.`, processedCount };
 }

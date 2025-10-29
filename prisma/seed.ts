@@ -8,30 +8,39 @@ const prisma = new PrismaClient();
 const permissions = {
   superAdmin: {
     dashboard: { create: true, read: true, update: true, delete: true },
+    merchants: { create: true, read: true, update: true, delete: true },
     reports: { create: true, read: true, update: true, delete: true },
     'access-control': { create: true, read: true, update: true, delete: true },
     'scoring-engine': { create: true, read: true, update: true, delete: true },
     settings: { create: true, read: true, update: true, delete: true },
     products: { create: true, read: true, update: true, delete: true },
     tax: { create: true, read: true, update: true, delete: true },
+    npl: { create: true, read: true, update: true, delete: true },
+    'audit-logs': { create: true, read: true, update: true, delete: true },
   },
   loanProvider: {
     dashboard: { create: false, read: true, update: false, delete: false },
+    merchants: { create: false, read: true, update: false, delete: false },
     reports: { create: true, read: true, update: false, delete: false },
     'access-control': { create: false, read: false, update: false, delete: false },
     'scoring-engine': { create: false, read: true, update: true, delete: false },
     settings: { create: false, read: true, update: true, delete: false },
     products: { create: true, read: true, update: true, delete: true },
     tax: { create: false, read: true, update: false, delete: false },
+    npl: { create: false, read: true, update: false, delete: false },
+    'audit-logs': { create: false, read: false, update: false, delete: false },
   },
    reconciliation: {
     dashboard: { create: false, read: true, update: false, delete: false },
+    merchants: { create: false, read: true, update: false, delete: false },
     reports: { create: false, read: true, update: false, delete: false },
     'access-control': { create: false, read: false, update: false, delete: false },
     'scoring-engine': { create: false, read: false, update: false, delete: false },
     settings: { create: false, read: false, update: false, delete: false },
     products: { create: false, read: false, update: false, delete: false },
     tax: { create: false, read: true, update: false, delete: false },
+    npl: { create: false, read: true, update: false, delete: false },
+    'audit-logs': { create: false, read: false, update: false, delete: false },
   }
 };
 
