@@ -12,7 +12,7 @@ async function validateTokenAndGetPhone(authHeader: string | null): Promise<{pho
   if (!TOKEN_VALIDATION_API_URL) {
     // In development, if the URL is not set, we can simulate a successful login to allow local testing.
     if (process.env.NODE_ENV === 'development') {
-        console.log("Development mode: TOKEN_VALIDATION_API_URL not set, using mock borrower ID.");
+        console.log("Development mode: TOKEN_VALIDATION_API_URL not set, using mock customer ID.");
         return { phone: 'borrower-123' };
     }
     return { error: 'The token validation URL is not configured in the environment.' };
@@ -68,7 +68,7 @@ export default async function ConnectPage() {
   const { phone, error } = await validateTokenAndGetPhone(authHeader);
 
   if (phone) {
-    // The phone number from the super app is used as the borrowerId
+    // The phone number from the super app is used as the customerId (borrowerId)
     redirect(`/loan?borrowerId=${phone}`);
   }
 
@@ -79,7 +79,7 @@ export default async function ConnectPage() {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Connection Failed</CardTitle>
           <CardDescription>
-            There was a problem securely connecting you to the loan service.
+            There was a problem securely connecting you to the financing service.
           </CardDescription>
         </CardHeader>
         <CardContent>

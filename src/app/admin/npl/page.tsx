@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { updateNplStatus } from '@/actions/npl';
 
-interface NplBorrower {
+interface NplCustomer {
     id: string;
     status: string;
     loans: {
@@ -21,31 +21,31 @@ interface NplBorrower {
     }[];
 }
 
-async function getNplBorrowers(): Promise<NplBorrower[]> {
+async function getNplCustomers(): Promise<NplCustomer[]> {
     const response = await fetch('/api/npl-borrowers');
     if (!response.ok) {
-        throw new Error('Failed to fetch NPL borrowers');
+        throw new Error('Failed to fetch NPL customers');
     }
     return response.json();
 }
 
 export default function NplManagementPage() {
-    const [borrowers, setBorrowers] = useState<NplBorrower[]>([]);
+    const [customers, setCustomers] = useState<NplCustomer[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(false);
     const [isReverting, setIsReverting] = useState(false);
-    const [selectedBorrower, setSelectedBorrower] = useState<NplBorrower | null>(null);
+    const [selectedCustomer, setSelectedCustomer] = useState<NplCustomer | null>(null);
     const { toast } = useToast();
 
-    const fetchBorrowers = async () => {
+    const fetchCustomers = async () => {
         setIsLoading(true);
         try {
-            const data = await getNplBorrowers();
-            setBorrowers(data);
+            const data = await getNplCustomers();
+            setCustomers(data);
         } catch (error) {
             toast({
                 title: 'Error',
-                description: 'Could not load NPL borrowers.',
+                description: 'Could not load NPL customers.',
                 variant: 'destructive',
             });
         } finally {
@@ -54,7 +54,7 @@ export default function NplManagementPage() {
     };
 
     useEffect(() => {
-        fetchBorrowers();
+        fetchCustomers();
     }, []);
 
     const handleRunNplUpdate = async () => {
@@ -64,9 +64,9 @@ export default function NplManagementPage() {
             if (result.success) {
                 toast({
                     title: 'NPL Status Updated',
-                    description: `${result.updatedCount} borrower(s) have been updated.`,
+                    description: `${result.updatedCount} customer(s) have been updated.`,
                 });
-                await fetchBorrowers(); // Refresh the list
+                await fetchCustomers(); // Refresh the list
             } else {
                 throw new Error(result.message);
             }
@@ -82,13 +82,13 @@ export default function NplManagementPage() {
     };
     
     const handleRevertStatus = async () => {
-        if (!selectedBorrower) return;
+        if (!selectedCustomer) return;
         setIsReverting(true);
         try {
              const response = await fetch('/api/borrowers', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ borrowerId: selectedBorrower.id, status: 'Active' }),
+                body: JSON.stringify({ borrowerId: selectedCustomer.id, status: 'Active' }),
             });
             if (!response.ok) {
                 const errorData = await response.json();
@@ -96,9 +96,9 @@ export default function NplManagementPage() {
             }
             toast({
                 title: 'Status Reverted',
-                description: `Borrower ${selectedBorrower.id.slice(0, 8)} has been set to Active.`,
+                description: `Customer ${selectedCustomer.id.slice(0, 8)} has been set to Active.`,
             });
-            await fetchBorrowers();
+            await fetchCustomers();
         } catch (error: any) {
              toast({
                 title: 'Error',
@@ -107,7 +107,7 @@ export default function NplManagementPage() {
             });
         } finally {
             setIsReverting(false);
-            setSelectedBorrower(null);
+            setSelectedCustomer(null);
         }
     };
 
@@ -119,7 +119,7 @@ export default function NplManagementPage() {
                     <div>
                         <h2 className="text-3xl font-bold tracking-tight">NPL</h2>
                         <p className="text-muted-foreground">
-                            View and manage borrowers with Non-Performing Loans.
+                            View and manage customers with Non-Performing Loans.
                         </p>
                     </div>
                      <Button onClick={handleRunNplUpdate} disabled={isUpdating}>
@@ -129,16 +129,16 @@ export default function NplManagementPage() {
                 </div>
                  <Card>
                     <CardHeader>
-                        <CardTitle>NPL Borrowers</CardTitle>
-                        <CardDescription>This list contains all borrowers who have been flagged due to overdue loans based on their provider's NPL threshold.</CardDescription>
+                        <CardTitle>NPL Customers</CardTitle>
+                        <CardDescription>This list contains all customers who have been flagged due to overdue installment plans based on their provider's NPL threshold.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Borrower ID</TableHead>
+                                    <TableHead>Customer ID</TableHead>
                                     <TableHead>Status</TableHead>
-                                    <TableHead>Overdue Loan Count</TableHead>
+                                    <TableHead>Overdue Plan Count</TableHead>
                                     <TableHead>Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -149,16 +149,16 @@ export default function NplManagementPage() {
                                             <Loader2 className="h-6 w-6 animate-spin mx-auto"/>
                                         </TableCell>
                                     </TableRow>
-                                ) : borrowers.length > 0 ? (
-                                    borrowers.map((borrower) => (
-                                        <TableRow key={borrower.id}>
-                                            <TableCell className="font-mono">{borrower.id}</TableCell>
+                                ) : customers.length > 0 ? (
+                                    customers.map((customer) => (
+                                        <TableRow key={customer.id}>
+                                            <TableCell className="font-mono">{customer.id}</TableCell>
                                             <TableCell>
-                                                <Badge variant="destructive">{borrower.status}</Badge>
+                                                <Badge variant="destructive">{customer.status}</Badge>
                                             </TableCell>
-                                            <TableCell>{borrower.loans.length}</TableCell>
+                                            <TableCell>{customer.loans.length}</TableCell>
                                             <TableCell>
-                                                <Button variant="outline" size="sm" onClick={() => setSelectedBorrower(borrower)}>
+                                                <Button variant="outline" size="sm" onClick={() => setSelectedCustomer(customer)}>
                                                     <UserCheck className="mr-2 h-4 w-4" />
                                                     Revert to Active
                                                 </Button>
@@ -168,7 +168,7 @@ export default function NplManagementPage() {
                                 ) : (
                                     <TableRow>
                                         <TableCell colSpan={4} className="h-24 text-center">
-                                            No NPL borrowers found.
+                                            No NPL customers found.
                                         </TableCell>
                                     </TableRow>
                                 )}
@@ -177,12 +177,12 @@ export default function NplManagementPage() {
                     </CardContent>
                 </Card>
             </div>
-            <AlertDialog open={!!selectedBorrower} onOpenChange={(isOpen) => !isOpen && setSelectedBorrower(null)}>
+            <AlertDialog open={!!selectedCustomer} onOpenChange={(isOpen) => !isOpen && setSelectedCustomer(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Revert Borrower Status?</AlertDialogTitle>
+                        <AlertDialogTitle>Revert Customer Status?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            This will manually change the status of borrower <span className="font-mono">{selectedBorrower?.id}</span> from NPL back to Active. This should only be done if the loan has been settled or if an error was made.
+                            This will manually change the status of customer <span className="font-mono">{selectedCustomer?.id}</span> from NPL back to Active. This should only be done if their account has been settled or if an error was made.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

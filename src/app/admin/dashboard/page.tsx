@@ -136,7 +136,7 @@ async function getProviderData(providerId?: string): Promise<DashboardData> {
         include: { product: true }
     }).then(loans => loans.map(l => ({
         id: l.id,
-        customer: `Borrower #${l.borrowerId.substring(0,8)}...`,
+        customer: `Customer #${l.borrowerId.substring(0,8)}...`,
         product: l.product.name,
         status: l.repaymentStatus,
         amount: l.loanAmount,

@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { format } from 'date-fns';
@@ -49,7 +50,7 @@ export async function GET(
     }
     
     // Sort all transactions by date
-    transactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
 
     return NextResponse.json(transactions);

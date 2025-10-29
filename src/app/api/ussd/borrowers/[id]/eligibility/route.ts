@@ -18,7 +18,7 @@ export async function GET(
 
   try {
     const [borrower, provider] = await Promise.all([
-        // We check for borrower existence indirectly by trying to fetch their data.
+        // We check for customer existence indirectly by trying to fetch their data.
         prisma.provisionedData.findFirst({ where: { borrowerId } }),
         prisma.loanProvider.findUnique({
             where: { id: providerId },
