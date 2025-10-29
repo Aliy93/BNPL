@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getSession } from '@/lib/session';
@@ -63,6 +64,7 @@ export async function POST(req: NextRequest) {
         });
 
         console.log(JSON.stringify({
+            timestamp: new Date().toISOString(),
             action: 'SCORING_RULES_UPDATE_SUCCESS',
             actorId: session.userId,
             details: {

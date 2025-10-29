@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
 
         await createAuditLog({ actorId: borrowerIdForLogging || 'unknown', action: 'REPAYMENT_INITIATED', entity: 'LOAN', entityId: loanId, details: paymentDetailsForLogging });
         console.log(JSON.stringify({
+            timestamp: new Date().toISOString(),
             action: 'REPAYMENT_INITIATED',
             actorId: borrowerIdForLogging,
             details: paymentDetailsForLogging
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
 
 
         if (!loan) {
-            throw new Error('Loan not found');
+            throw new Error('Installment plan not found');
         }
         
         const provider = loan.product.provider;
@@ -103,7 +104,7 @@ export async function POST(req: NextRequest) {
                     providerId: provider.id,
                     loanId: loan.id,
                     date: paymentDate,
-                    description: `Repayment of ${paymentAmount} for loan ${loan.id}`
+                    description: `Repayment of ${paymentAmount} for installment plan ${loan.id}`
                 }
             });
 
@@ -206,13 +207,13 @@ export async function POST(req: NextRequest) {
             });
             
              const logDetails = {
-                loanId: loan.id,
+                installmentPlanId: loan.id,
                 paymentId: newPayment.id,
                 amount: paymentAmount,
                 repaymentStatus: finalLoan.repaymentStatus,
              };
-             await createAuditLog({ actorId: loan.borrowerId, action: 'REPAYMENT_SUCCESS', entity: 'LOAN', entityId: loan.id, details: logDetails });
-             console.log(JSON.stringify({ ...logDetails, action: 'REPAYMENT_SUCCESS' }));
+             await createAuditLog({ actorId: loan.borrowerId, action: 'REPAYMENT_SUCCESS', entity: 'INSTALLMENT_PLAN', entityId: loan.id, details: logDetails });
+             console.log(JSON.stringify({ ...logDetails, timestamp: new Date().toISOString(), action: 'REPAYMENT_SUCCESS' }));
             
             return finalLoan;
         });
@@ -225,8 +226,8 @@ export async function POST(req: NextRequest) {
             ...paymentDetailsForLogging,
             error: errorMessage,
         };
-        await createAuditLog({ actorId: borrowerIdForLogging || 'unknown', action: 'REPAYMENT_FAILED', entity: 'LOAN', entityId: paymentDetailsForLogging.loanId, details: failureLogDetails });
-        console.error(JSON.stringify({ ...failureLogDetails, action: 'REPAYMENT_FAILED' }));
+        await createAuditLog({ actorId: borrowerIdForLogging || 'unknown', action: 'REPAYMENT_FAILED', entity: 'INSTALLMENT_PLAN', entityId: paymentDetailsForLogging.loanId, details: failureLogDetails });
+        console.error(JSON.stringify({ ...failureLogDetails, timestamp: new Date().toISOString(), action: 'REPAYMENT_FAILED' }));
 
         if (error instanceof z.ZodError) {
             return NextResponse.json({ error: error.errors }, { status: 400 });

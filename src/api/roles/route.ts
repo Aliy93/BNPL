@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
         
         const logDetails = { roleName: name };
         await createAuditLog({ actorId: session.userId, action: 'ROLE_CREATE_INITIATED', entity: 'ROLE', details: logDetails, ipAddress, userAgent });
-        console.log(JSON.stringify({ ...logDetails, action: 'ROLE_CREATE_INITIATED', actorId: session.userId }));
+        console.log(JSON.stringify({ ...logDetails, timestamp: new Date().toISOString(), action: 'ROLE_CREATE_INITIATED', actorId: session.userId }));
 
         const newRole = await prisma.role.create({
             data: {
@@ -64,14 +64,14 @@ export async function POST(req: NextRequest) {
         
         const successLogDetails = { roleId: newRole.id, roleName: newRole.name };
         await createAuditLog({ actorId: session.userId, action: 'ROLE_CREATE_SUCCESS', entity: 'ROLE', entityId: newRole.id, details: successLogDetails, ipAddress, userAgent });
-        console.log(JSON.stringify({ ...successLogDetails, action: 'ROLE_CREATE_SUCCESS', actorId: session.userId }));
+        console.log(JSON.stringify({ ...successLogDetails, timestamp: new Date().toISOString(), action: 'ROLE_CREATE_SUCCESS', actorId: session.userId }));
 
         return NextResponse.json({ ...newRole, permissions }, { status: 201 });
     } catch (error) {
         const errorMessage = (error instanceof z.ZodError) ? error.errors : (error as Error).message;
         const failureLogDetails = { error: errorMessage };
         await createAuditLog({ actorId: session.userId, action: 'ROLE_CREATE_FAILED', entity: 'ROLE', details: failureLogDetails, ipAddress, userAgent });
-        console.error(JSON.stringify({ ...failureLogDetails, action: 'ROLE_CREATE_FAILED', actorId: session.userId }));
+        console.error(JSON.stringify({ ...failureLogDetails, timestamp: new Date().toISOString(), action: 'ROLE_CREATE_FAILED', actorId: session.userId }));
         if (error instanceof z.ZodError) {
             return NextResponse.json({ error: error.errors }, { status: 400 });
         }
@@ -92,7 +92,7 @@ export async function PUT(req: NextRequest) {
 
         const logDetails = { roleId: id, roleName: name };
         await createAuditLog({ actorId: session.userId, action: 'ROLE_UPDATE_INITIATED', entity: 'ROLE', entityId: id, details: logDetails, ipAddress, userAgent });
-        console.log(JSON.stringify({ ...logDetails, action: 'ROLE_UPDATE_INITIATED', actorId: session.userId }));
+        console.log(JSON.stringify({ ...logDetails, timestamp: new Date().toISOString(), action: 'ROLE_UPDATE_INITIATED', actorId: session.userId }));
 
         const updatedRole = await prisma.role.update({
             where: { id },
@@ -104,7 +104,7 @@ export async function PUT(req: NextRequest) {
         
         const successLogDetails = { roleId: updatedRole.id, roleName: updatedRole.name };
         await createAuditLog({ actorId: session.userId, action: 'ROLE_UPDATE_SUCCESS', entity: 'ROLE', entityId: updatedRole.id, details: successLogDetails, ipAddress, userAgent });
-        console.log(JSON.stringify({ ...successLogDetails, action: 'ROLE_UPDATE_SUCCESS', actorId: session.userId }));
+        console.log(JSON.stringify({ ...successLogDetails, timestamp: new Date().toISOString(), action: 'ROLE_UPDATE_SUCCESS', actorId: session.userId }));
 
 
         return NextResponse.json({ ...updatedRole, permissions });
@@ -112,7 +112,7 @@ export async function PUT(req: NextRequest) {
         const errorMessage = (error instanceof z.ZodError) ? error.errors : (error as Error).message;
         const failureLogDetails = { error: errorMessage };
         await createAuditLog({ actorId: session.userId, action: 'ROLE_UPDATE_FAILED', entity: 'ROLE', details: failureLogDetails, ipAddress, userAgent });
-        console.error(JSON.stringify({ ...failureLogDetails, action: 'ROLE_UPDATE_FAILED', actorId: session.userId }));
+        console.error(JSON.stringify({ ...failureLogDetails, timestamp: new Date().toISOString(), action: 'ROLE_UPDATE_FAILED', actorId: session.userId }));
         if (error instanceof z.ZodError) {
             return NextResponse.json({ error: error.errors }, { status: 400 });
         }
@@ -137,7 +137,7 @@ export async function DELETE(req: NextRequest) {
 
         const logDetails = { roleId: id };
         await createAuditLog({ actorId: session.userId, action: 'ROLE_DELETE_INITIATED', entity: 'ROLE', entityId: id, details: logDetails, ipAddress, userAgent });
-        console.log(JSON.stringify({ ...logDetails, action: 'ROLE_DELETE_INITIATED', actorId: session.userId }));
+        console.log(JSON.stringify({ ...logDetails, timestamp: new Date().toISOString(), action: 'ROLE_DELETE_INITIATED', actorId: session.userId }));
         
         // Check if any user is assigned to this role
         const usersWithRole = await prisma.user.count({ where: { roleId: id } });
@@ -153,7 +153,7 @@ export async function DELETE(req: NextRequest) {
 
         const successLogDetails = { deletedRoleId: id, deletedRoleName: roleToDelete?.name };
         await createAuditLog({ actorId: session.userId, action: 'ROLE_DELETE_SUCCESS', entity: 'ROLE', entityId: id, details: successLogDetails, ipAddress, userAgent });
-        console.log(JSON.stringify({ ...successLogDetails, action: 'ROLE_DELETE_SUCCESS', actorId: session.userId }));
+        console.log(JSON.stringify({ ...successLogDetails, timestamp: new Date().toISOString(), action: 'ROLE_DELETE_SUCCESS', actorId: session.userId }));
 
         return NextResponse.json({ message: 'Role deleted successfully' });
 
@@ -161,7 +161,7 @@ export async function DELETE(req: NextRequest) {
         const errorMessage = (error as Error).message;
         const failureLogDetails = { roleId: roleId, error: errorMessage };
         await createAuditLog({ actorId: session.userId, action: 'ROLE_DELETE_FAILED', entity: 'ROLE', entityId: roleId, details: failureLogDetails, ipAddress, userAgent });
-        console.error(JSON.stringify({ ...failureLogDetails, action: 'ROLE_DELETE_FAILED', actorId: session.userId }));
+        console.error(JSON.stringify({ ...failureLogDetails, timestamp: new Date().toISOString(), action: 'ROLE_DELETE_FAILED', actorId: session.userId }));
         return NextResponse.json({ error: errorMessage || 'Internal Server Error' }, { status: 500 });
     }
 }

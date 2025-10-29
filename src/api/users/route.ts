@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
 
     const logDetails = { userEmail: userData.email, assignedRole: roleName };
     await createAuditLog({ actorId: session.userId, action: 'USER_CREATE_INITIATED', entity: 'USER', details: logDetails, ipAddress, userAgent });
-    console.log(JSON.stringify({ ...logDetails, action: 'USER_CREATE_INITIATED', actorId: session.userId }));
+    console.log(JSON.stringify({ ...logDetails, timestamp: new Date().toISOString(), action: 'USER_CREATE_INITIATED', actorId: session.userId }));
 
     if (!password) {
       throw new Error('Password is required for new users.');
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
     
     const successLogDetails = { createdUserId: newUser.id, createdUserEmail: newUser.email, assignedRole: roleName };
     await createAuditLog({ actorId: session.userId, action: 'USER_CREATE_SUCCESS', entity: 'USER', entityId: newUser.id, details: successLogDetails, ipAddress, userAgent });
-    console.log(JSON.stringify({ ...successLogDetails, action: 'USER_CREATE_SUCCESS', actorId: session.userId }));
+    console.log(JSON.stringify({ ...successLogDetails, timestamp: new Date().toISOString(), action: 'USER_CREATE_SUCCESS', actorId: session.userId }));
 
 
     return NextResponse.json(newUser, { status: 201 });
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
      const errorMessage = (error instanceof z.ZodError) ? error.errors : (error as Error).message;
      const failureLogDetails = { error: errorMessage };
      await createAuditLog({ actorId: session.userId, action: 'USER_CREATE_FAILED', entity: 'USER', details: failureLogDetails, ipAddress, userAgent });
-     console.error(JSON.stringify({ ...failureLogDetails, action: 'USER_CREATE_FAILED', actorId: session.userId }));
+     console.error(JSON.stringify({ ...failureLogDetails, timestamp: new Date().toISOString(), action: 'USER_CREATE_FAILED', actorId: session.userId }));
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors }, { status: 400 });
     }
@@ -123,7 +123,7 @@ export async function PUT(req: NextRequest) {
 
     const logDetails = { updatedUserId: id, updatedFields: Object.keys(userData) };
     await createAuditLog({ actorId: session.userId, action: 'USER_UPDATE_INITIATED', entity: 'USER', entityId: id, details: logDetails, ipAddress, userAgent });
-    console.log(JSON.stringify({ ...logDetails, action: 'USER_UPDATE_INITIATED', actorId: session.userId }));
+    console.log(JSON.stringify({ ...logDetails, timestamp: new Date().toISOString(), action: 'USER_UPDATE_INITIATED', actorId: session.userId }));
 
     let dataToUpdate: any = { ...userData };
 
@@ -150,14 +150,14 @@ export async function PUT(req: NextRequest) {
     
     const successLogDetails = { updatedUserId: id, updatedFields: Object.keys(userData) };
     await createAuditLog({ actorId: session.userId, action: 'USER_UPDATE_SUCCESS', entity: 'USER', entityId: id, details: successLogDetails, ipAddress, userAgent });
-    console.log(JSON.stringify({ ...successLogDetails, action: 'USER_UPDATE_SUCCESS', actorId: session.userId }));
+    console.log(JSON.stringify({ ...successLogDetails, timestamp: new Date().toISOString(), action: 'USER_UPDATE_SUCCESS', actorId: session.userId }));
 
     return NextResponse.json(updatedUser);
   } catch (error) {
     const errorMessage = (error as Error).message;
     const failureLogDetails = { error: errorMessage };
     await createAuditLog({ actorId: session.userId, action: 'USER_UPDATE_FAILED', entity: 'USER', details: failureLogDetails, ipAddress, userAgent });
-    console.error(JSON.stringify({ ...failureLogDetails, action: 'USER_UPDATE_FAILED', actorId: session.userId }));
+    console.error(JSON.stringify({ ...failureLogDetails, timestamp: new Date().toISOString(), action: 'USER_UPDATE_FAILED', actorId: session.userId }));
     return NextResponse.json({ error: errorMessage || 'Internal Server Error' }, { status: 500 });
   }
 }
