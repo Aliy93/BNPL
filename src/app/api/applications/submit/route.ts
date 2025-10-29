@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
         await createAuditLog({
             actorId: application.borrowerId,
             action: 'APPLICATION_SUBMITTED_FOR_REVIEW',
-            entity: 'LOAN_APPLICATION',
+            entity: 'FINANCING_APPLICATION',
             entityId: applicationId,
         });
 

@@ -9,11 +9,11 @@ export async function GET(
   const borrowerId = params.id;
 
   if (!borrowerId) {
-    return NextResponse.json({ error: 'Borrower ID is required.' }, { status: 400 });
+    return NextResponse.json({ error: 'Customer ID is required.' }, { status: 400 });
   }
 
   try {
-    const loans = await prisma.loan.findMany({
+    const installmentPlans = await prisma.loan.findMany({
       where: { borrowerId: borrowerId },
       include: {
         product: true,
@@ -30,16 +30,16 @@ export async function GET(
 
     const transactions = [];
 
-    for (const loan of loans) {
-      // Loan Disbursement
+    for (const plan of installmentPlans) {
+      // Order Financing
       transactions.push({
-        date: format(new Date(loan.disbursedDate), 'yyyy-MM-dd'),
-        description: `Loan disbursement for ${loan.product.name}`,
-        amount: loan.loanAmount,
+        date: format(new Date(plan.disbursedDate), 'yyyy-MM-dd'),
+        description: `Financed purchase with ${plan.product.name}`,
+        amount: plan.loanAmount,
       });
 
-      // Repayments for that loan
-      for (const payment of loan.payments) {
+      // Repayments for that plan
+      for (const payment of plan.payments) {
         transactions.push({
           date: format(new Date(payment.date), 'yyyy-MM-dd'),
           description: 'Repayment',
@@ -55,7 +55,7 @@ export async function GET(
     return NextResponse.json(transactions);
 
   } catch (error) {
-    console.error('Failed to fetch transactions for borrower:', error);
+    console.error('Failed to fetch transactions for customer:', error);
     return NextResponse.json({ error: 'An internal server error occurred.' }, { status: 500 });
   }
 }

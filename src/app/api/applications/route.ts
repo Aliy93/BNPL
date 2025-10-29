@@ -6,7 +6,7 @@ import { getSession } from '@/lib/session';
 const applicationSchema = z.object({
   borrowerId: z.string(),
   productId: z.string(),
-  loanAmount: z.number().optional(), // Added to capture amount from calculator
+  loanAmount: z.number().optional(), // This represents the order amount
 });
 
 export async function POST(req: NextRequest) {
@@ -19,25 +19,25 @@ export async function POST(req: NextRequest) {
         });
 
         if (!product) {
-            return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Payment plan product not found' }, { status: 404 });
         }
         
-        // Ensure the borrower exists before creating an application
+        // Ensure the customer exists before creating an application
         const borrower = await prisma.borrower.findUnique({
             where: { id: borrowerId }
         });
         
         if (!borrower) {
-            return NextResponse.json({ error: 'Borrower not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
         }
 
-        // If no reusable application is found, create a new one.
+        // Create a new application representing the financing request for an order
         const newApplication = await prisma.loanApplication.create({
             data: {
                 borrower: { connect: { id: borrowerId } },
                 product: { connect: { id: productId } },
-                loanAmount: loanAmount, // Save the requested loan amount
-                status: 'APPROVED',
+                loanAmount: loanAmount, // Represents the total order amount to be financed
+                status: 'APPROVED', // For instant BNPL approval
             }
         });
 

@@ -1,3 +1,4 @@
+
 'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -8,15 +9,15 @@ import { loanCreationSchema } from '@/lib/schemas';
 import { checkLoanEligibility } from '@/actions/eligibility';
 import { createAuditLog } from '@/lib/audit-log';
 
-async function handlePersonalLoan(data: z.infer<typeof loanCreationSchema>) {
+async function handleInstallmentPlanCreation(data: z.infer<typeof loanCreationSchema>) {
     return await prisma.$transaction(async (tx) => {
-        // Step 1: Create the LoanApplication record.
-        const loanApplication = await tx.loanApplication.create({
+        // This is now effectively creating the financing record (OrderId) and the InstallmentPlan (Loan)
+        const financingApplication = await tx.loanApplication.create({
             data: {
                 borrowerId: data.borrowerId,
                 productId: data.productId,
                 loanAmount: data.loanAmount,
-                status: 'DISBURSED', // Personal loans are disbursed immediately
+                status: 'DISBURSED', // BNPL implies instant disbursement to merchant
             }
         });
 
@@ -32,18 +33,16 @@ async function handlePersonalLoan(data: z.infer<typeof loanCreationSchema>) {
         });
 
         if (!product) {
-            throw new Error('Loan product not found.');
+            throw new Error('Installment plan product not found.');
         }
         
-        // --- NEW: Check provider balance before disbursement ---
         if (product.provider.initialBalance < data.loanAmount) {
             throw new Error(`Insufficient provider funds. Available: ${product.provider.initialBalance}, Requested: ${data.loanAmount}`);
         }
-        // --- END NEW ---
 
         const provider = product.provider;
         
-        const tempLoanForCalc = {
+        const tempPlanForCalc = {
             id: 'temp',
             loanAmount: data.loanAmount,
             disbursedDate: new Date(data.disbursedDate),
@@ -57,9 +56,8 @@ async function handlePersonalLoan(data: z.infer<typeof loanCreationSchema>) {
             penaltyAmount: 0,
             product: product as any,
         };
-        const { serviceFee: calculatedServiceFee } = calculateTotalRepayable(tempLoanForCalc, product, new Date(data.disbursedDate));
+        const { serviceFee: calculatedServiceFee } = calculateTotalRepayable(tempPlanForCalc, product, new Date(data.disbursedDate));
 
-        // Ledger Account Checks
         const principalReceivableAccount = provider.ledgerAccounts.find((acc: any) => acc.category === 'Principal' && acc.type === 'Receivable');
         const serviceFeeReceivableAccount = provider.ledgerAccounts.find((acc: any) => acc.category === 'ServiceFee' && acc.type === 'Receivable');
         const serviceFeeIncomeAccount = provider.ledgerAccounts.find((acc: any) => acc.category === 'ServiceFee' && acc.type === 'Income');
@@ -67,12 +65,11 @@ async function handlePersonalLoan(data: z.infer<typeof loanCreationSchema>) {
         if (calculatedServiceFee > 0 && (!serviceFeeReceivableAccount || !serviceFeeIncomeAccount)) throw new Error('Service Fee ledger accounts not configured.');
 
 
-        // Step 2: Create the Loan record and connect it to the application.
-        const createdLoan = await tx.loan.create({
+        const createdInstallmentPlan = await tx.loan.create({
             data: {
                 borrowerId: data.borrowerId,
                 productId: data.productId,
-                loanApplicationId: loanApplication.id, // Link to the created application
+                loanApplicationId: financingApplication.id, // This is the OrderId
                 loanAmount: data.loanAmount,
                 disbursedDate: data.disbursedDate,
                 dueDate: data.dueDate,
@@ -86,9 +83,9 @@ async function handlePersonalLoan(data: z.infer<typeof loanCreationSchema>) {
         const journalEntry = await tx.journalEntry.create({
             data: {
                 providerId: provider.id,
-                loanId: createdLoan.id,
+                loanId: createdInstallmentPlan.id,
                 date: new Date(data.disbursedDate),
-                description: `Loan disbursement for ${product.name} to borrower ${data.borrowerId}`,
+                description: `Financing for Order ${financingApplication.id} to customer ${data.borrowerId}`,
             }
         });
         
@@ -113,9 +110,10 @@ async function handlePersonalLoan(data: z.infer<typeof loanCreationSchema>) {
         }
 
         await tx.ledgerAccount.update({ where: { id: principalReceivableAccount.id }, data: { balance: { increment: data.loanAmount } } });
+        // This now represents the settlement to the merchant
         await tx.loanProvider.update({ where: { id: provider.id }, data: { initialBalance: { decrement: data.loanAmount } } });
         
-        return createdLoan;
+        return createdInstallmentPlan;
     });
 }
 
@@ -123,55 +121,53 @@ export async function POST(req: NextRequest) {
     if (req.method !== 'POST') {
         return new NextResponse(null, { status: 405, statusText: "Method Not Allowed" });
     }
-    let loanDetailsForLogging: any = {};
+    let planDetailsForLogging: any = {};
     try {
         const body = await req.json();
         const data = loanCreationSchema.parse(body);
-        loanDetailsForLogging = { ...data };
+        planDetailsForLogging = { ...data };
 
         const product = await prisma.loanProduct.findUnique({
             where: { id: data.productId },
         });
         
         if (!product) {
-            throw new Error('Loan product not found.');
+            throw new Error('Installment plan product not found.');
         }
 
-        const logDetails = { borrowerId: data.borrowerId, productId: data.productId, amount: data.loanAmount };
-        await createAuditLog({ actorId: 'system', action: 'LOAN_DISBURSEMENT_INITIATED', entity: 'LOAN', details: logDetails });
+        const logDetails = { customerId: data.borrowerId, productId: data.productId, amount: data.loanAmount };
+        await createAuditLog({ actorId: 'system', action: 'FINANCING_INITIATED', entity: 'ORDER', details: logDetails });
 
-        // --- SERVER-SIDE VALIDATION ---
         const { isEligible, maxLoanAmount, reason } = await checkLoanEligibility(data.borrowerId, product.providerId, product.id);
 
         if (!isEligible) {
-            throw new Error(`Loan denied: ${reason}`);
+            throw new Error(`Financing denied: ${reason}`);
         }
 
         if (data.loanAmount > maxLoanAmount) {
-            throw new Error(`Requested amount of ${data.loanAmount} exceeds the maximum allowed limit of ${maxLoanAmount}.`);
+            throw new Error(`Purchase amount of ${data.loanAmount} exceeds the maximum allowed spending limit of ${maxLoanAmount}.`);
         }
-        // --- END OF VALIDATION ---
 
-        const newLoan = await handlePersonalLoan(data);
+        const newInstallmentPlan = await handleInstallmentPlanCreation(data);
 
         const successLogDetails = {
-            loanId: newLoan.id,
-            borrowerId: newLoan.borrowerId,
-            productId: newLoan.productId,
-            amount: newLoan.loanAmount,
-            serviceFee: newLoan.serviceFee,
+            installmentPlanId: newInstallmentPlan.id,
+            customerId: newInstallmentPlan.borrowerId,
+            productId: newInstallmentPlan.productId,
+            amount: newInstallmentPlan.loanAmount,
+            serviceFee: newInstallmentPlan.serviceFee,
         };
-        await createAuditLog({ actorId: 'system', action: 'LOAN_DISBURSEMENT_SUCCESS', entity: 'LOAN', entityId: newLoan.id, details: successLogDetails });
+        await createAuditLog({ actorId: 'system', action: 'FINANCING_SUCCESS', entity: 'ORDER', entityId: newInstallmentPlan.loanApplicationId!, details: successLogDetails });
 
-        return NextResponse.json(newLoan, { status: 201 });
+        return NextResponse.json(newInstallmentPlan, { status: 201 });
 
     } catch (error) {
         const errorMessage = (error instanceof z.ZodError) ? error.errors : (error as Error).message;
         const failureLogDetails = {
-            ...loanDetailsForLogging,
+            ...planDetailsForLogging,
             error: errorMessage,
         };
-        await createAuditLog({ actorId: 'system', action: 'LOAN_DISBURSEMENT_FAILED', entity: 'LOAN', details: failureLogDetails });
+        await createAuditLog({ actorId: 'system', action: 'FINANCING_FAILED', entity: 'ORDER', details: failureLogDetails });
 
         if (error instanceof z.ZodError) {
             return NextResponse.json({ error: error.errors }, { status: 400 });

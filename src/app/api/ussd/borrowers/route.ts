@@ -19,7 +19,7 @@ const normalizePhoneNumber = (phone: string): string => {
 
 
 // Helper to get the most complete borrower data from provisioned sources
-async function getBorrowerDataByPhoneNumber(phoneNumber: string): Promise<Record<string, any> | null> {
+async function getCustomerDataByPhoneNumber(phoneNumber: string): Promise<Record<string, any> | null> {
     const normalizedTargetPhone = normalizePhoneNumber(phoneNumber);
     if (!normalizedTargetPhone) return null;
     
@@ -90,16 +90,16 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const borrowerData = await getBorrowerDataByPhoneNumber(phoneNumber);
+    const borrowerData = await getCustomerDataByPhoneNumber(phoneNumber);
 
     if (!borrowerData) {
-      return NextResponse.json({ error: 'User not found.' }, { status: 404 });
+      return NextResponse.json({ error: 'Customer not found.' }, { status: 404 });
     }
 
     return NextResponse.json(borrowerData);
 
   } catch (error) {
-    console.error('Failed to retrieve borrower:', error);
+    console.error('Failed to retrieve customer:', error);
     return NextResponse.json({ error: 'An internal server error occurred.' }, { status: 500 });
   }
 }

@@ -12,7 +12,7 @@ export async function GET(
   const borrowerId = params.id;
 
   if (!borrowerId) {
-    return NextResponse.json({ error: 'Borrower ID is required.' }, { status: 400 });
+    return NextResponse.json({ error: 'Customer ID is required.' }, { status: 400 });
   }
 
   try {
@@ -60,7 +60,7 @@ export async function GET(
     return NextResponse.json(formattedLoans);
 
   } catch (error) {
-    console.error('Failed to fetch loans for borrower:', error);
+    console.error('Failed to fetch installment plans for customer:', error);
     return NextResponse.json({ error: 'An internal server error occurred.' }, { status: 500 });
   }
 }

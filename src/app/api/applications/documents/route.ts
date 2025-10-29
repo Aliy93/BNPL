@@ -48,9 +48,9 @@ export async function POST(req: NextRequest) {
         // For now, we'll let the user manually submit for review.
 
         await createAuditLog({
-            actorId: 'borrower', // In a real app, you'd get this from session
+            actorId: 'customer', // In a real app, you'd get this from session
             action: 'DOCUMENT_UPLOADED',
-            entity: 'LOAN_APPLICATION',
+            entity: 'FINANCING_APPLICATION',
             entityId: applicationId,
             details: { documentName: file.name, requiredDocumentId: requiredDocId }
         });

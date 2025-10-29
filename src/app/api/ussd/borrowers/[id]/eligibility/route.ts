@@ -13,13 +13,12 @@ export async function GET(
   const providerId = searchParams.get('providerId');
 
   if (!borrowerId || !providerId) {
-    return NextResponse.json({ error: 'Borrower ID and Provider ID are required.' }, { status: 400 });
+    return NextResponse.json({ error: 'Customer ID and Provider ID are required.' }, { status: 400 });
   }
 
   try {
     const [borrower, provider] = await Promise.all([
         // We check for borrower existence indirectly by trying to fetch their data.
-        // A more direct way could be to query the Borrower model if it guarantees existence.
         prisma.provisionedData.findFirst({ where: { borrowerId } }),
         prisma.loanProvider.findUnique({
             where: { id: providerId },
@@ -28,7 +27,7 @@ export async function GET(
     ]);
 
     if (!borrower) {
-        return NextResponse.json({ error: 'Borrower not found.' }, { status: 404 });
+        return NextResponse.json({ error: 'Customer not found.' }, { status: 404 });
     }
     
     if (!provider) {
