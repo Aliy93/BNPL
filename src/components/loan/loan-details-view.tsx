@@ -54,8 +54,8 @@ export function LoanDetailsView({ details, product, onReset, providerColor = 'hs
   return (
     <div className="max-w-2xl mx-auto">
        <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold tracking-tight md:text-4xl" style={{color: providerColor}}>Loan Disbursed Successfully!</h1>
-        <p className="text-lg text-muted-foreground mt-2">Here is a summary of your new loan.</p>
+        <h1 className="text-3xl font-bold tracking-tight md:text-4xl" style={{color: providerColor}}>Purchase Confirmed!</h1>
+        <p className="text-lg text-muted-foreground mt-2">Here is a summary of your new installment plan.</p>
       </div>
       <Card className="shadow-lg">
         <CardHeader>
@@ -64,7 +64,7 @@ export function LoanDetailsView({ details, product, onReset, providerColor = 'hs
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex justify-between items-baseline p-4 bg-secondary rounded-lg">
-            <span className="text-muted-foreground">Loan Amount</span>
+            <span className="text-muted-foreground">Purchase Amount</span>
             <span className="text-4xl font-bold" style={{color: providerColor}}>{formatCurrency(details.loanAmount)}</span>
           </div>
 
@@ -114,7 +114,7 @@ export function LoanDetailsView({ details, product, onReset, providerColor = 'hs
         </CardContent>
         <CardFooter>
           <Button className="w-full text-white" onClick={onReset} style={{backgroundColor: providerColor}}>
-            Start New Application
+            Back to Dashboard
           </Button>
         </CardFooter>
       </Card>

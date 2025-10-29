@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -200,9 +199,9 @@ export function LoanOfferAndCalculator({ product, taxConfig, isLoading, eligibil
       <div className="max-w-2xl mx-auto">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Not Eligible for Loan</AlertTitle>
+          <AlertTitle>Not Eligible for Financing</AlertTitle>
           <AlertDescription>
-            {eligibilityResult.reason || "We're sorry, but you are not eligible for this loan product at this time."}
+            {eligibilityResult.reason || "We're sorry, but you are not eligible for this payment plan at this time."}
           </AlertDescription>
         </Alert>
       </div>
@@ -215,10 +214,11 @@ export function LoanOfferAndCalculator({ product, taxConfig, isLoading, eligibil
       <Card className="shadow-lg">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold font-headline">{product.name}</CardTitle>
+          <CardDescription>Review your payment plan details below.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-4">
-            <Label htmlFor="loanAmount" className="text-sm font-medium">Enter Your Desired Loan Amount</Label>
+            <Label htmlFor="loanAmount" className="text-sm font-medium">Purchase Amount</Label>
             <Input
               id="loanAmount"
               type="number"
@@ -236,7 +236,7 @@ export function LoanOfferAndCalculator({ product, taxConfig, isLoading, eligibil
               <p className="text-sm text-destructive">{amountError}</p>
             ) : (
              <p className="text-sm text-muted-foreground text-center">
-              Credit Limit: {formatCurrency(minLoan ?? 0)} - {formatCurrency(maxLoan ?? 0)}
+              Spending Limit: {formatCurrency(minLoan ?? 0)} - {formatCurrency(maxLoan ?? 0)}
             </p>
             )}
           </div>
@@ -300,7 +300,7 @@ export function LoanOfferAndCalculator({ product, taxConfig, isLoading, eligibil
         </CardContent>
         <CardFooter>
           <Button size="lg" className="w-full text-white" onClick={handleAccept} disabled={!!amountError} style={{backgroundColor: providerColor}}>
-            Accept and Disburse Loan
+            Confirm Purchase
           </Button>
         </CardFooter>
       </Card>
