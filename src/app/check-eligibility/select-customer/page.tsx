@@ -101,17 +101,17 @@ export default function SelectCustomerPage() {
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <ScrollArea className="h-96 w-full rounded-md border">
-                             <Table>
-                                <TableHeader className="sticky top-0 bg-background z-10">
-                                    <TableRow>
-                                        <TableHead className="w-[50px]"></TableHead>
-                                        <TableHead>Borrower ID</TableHead>
-                                        {headers.map(header => (
-                                            <TableHead key={header}>{formatHeader(header)}</TableHead>
-                                        ))}
-                                    </TableRow>
-                                </TableHeader>
-                                <RadioGroup value={selectedBorrowerId} onValueChange={setSelectedBorrowerId} asChild>
+                            <RadioGroup value={selectedBorrowerId} onValueChange={setSelectedBorrowerId} asChild>
+                                 <Table>
+                                    <TableHeader className="sticky top-0 bg-background z-10">
+                                        <TableRow>
+                                            <TableHead className="w-[50px]"></TableHead>
+                                            <TableHead>Borrower ID</TableHead>
+                                            {headers.map(header => (
+                                                <TableHead key={header}>{formatHeader(header)}</TableHead>
+                                            ))}
+                                        </TableRow>
+                                    </TableHeader>
                                     <TableBody>
                                         {isLoading ? (
                                             <TableRow>
@@ -128,7 +128,7 @@ export default function SelectCustomerPage() {
                                                     <TableCell>{borrower.id}</TableCell>
                                                     {headers.map(header => (
                                                         <TableCell key={`${borrower.id}-${header}`}>
-                                                            {borrower[header] !== undefined ? String(borrower[header]) : 'N/A'}
+                                                            {borrower[header] !== undefined && borrower[header] !== null ? String(borrower[header]) : 'N/A'}
                                                         </TableCell>
                                                     ))}
                                                 </TableRow>
@@ -141,8 +141,8 @@ export default function SelectCustomerPage() {
                                             </TableRow>
                                         )}
                                     </TableBody>
-                                </RadioGroup>
-                            </Table>
+                                </Table>
+                            </RadioGroup>
                         </ScrollArea>
                         <Button type="submit" className="w-full" disabled={isLoading || !selectedBorrowerId}>
                             {isLoading && !borrowers.length ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Continue'}
