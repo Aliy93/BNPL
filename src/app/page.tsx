@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect } from 'react';
@@ -9,8 +8,8 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Redirect to the connection page as the primary entry point for the mini app
-    router.replace('/loan/connect');
+    // Redirect to the customer selection page as the primary entry point for the mini app
+    router.replace('/check-eligibility/select-customer');
   }, [router]);
 
   return (
@@ -18,7 +17,7 @@ export default function HomePage() {
       <div className="flex flex-col items-center gap-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <h2 className="text-xl font-semibold">Loading...</h2>
-        <p className="text-muted-foreground">Initializing secure connection.</p>
+        <p className="text-muted-foreground">Loading customer selection.</p>
       </div>
     </div>
   );
