@@ -114,7 +114,7 @@ async function main() {
   console.log('Admin user seeded.');
 
   // Seed Loan Provider and Products
-  const nibBank = await prisma.loanProvider.upsert({
+  const nibBank = await prisma.financingPartner.upsert({
     where: { name: 'NIb Bank' },
     update: {},
     create: {
@@ -142,12 +142,12 @@ async function main() {
       console.log('Ledger accounts for NIb Bank seeded.');
   }
 
-  let personalLoan = await prisma.loanProduct.findFirst({
+  let personalLoan = await prisma.paymentPlanProduct.findFirst({
       where: { name: 'Personal Loan', providerId: nibBank.id }
   });
 
   if (!personalLoan) {
-      personalLoan = await prisma.loanProduct.create({
+      personalLoan = await prisma.paymentPlanProduct.create({
           data: {
               providerId: nibBank.id,
               name: 'Personal Loan',
@@ -185,7 +185,7 @@ async function main() {
   }
 
   // Seed Second Provider: Abyssinia Bank
-  const abyssiniaBank = await prisma.loanProvider.upsert({
+  const abyssiniaBank = await prisma.financingPartner.upsert({
     where: { name: 'Abyssinia Bank' },
     update: {},
     create: {
@@ -212,12 +212,12 @@ async function main() {
       console.log('Ledger accounts for Abyssinia Bank seeded.');
   }
 
-  let mortgageLoan = await prisma.loanProduct.findFirst({
+  let mortgageLoan = await prisma.paymentPlanProduct.findFirst({
       where: { name: 'Mortgage Loan', providerId: abyssiniaBank.id }
   });
 
   if (!mortgageLoan) {
-      mortgageLoan = await prisma.loanProduct.create({
+      mortgageLoan = await prisma.paymentPlanProduct.create({
           data: {
               providerId: abyssiniaBank.id,
               name: 'Mortgage Loan',
@@ -239,13 +239,13 @@ async function main() {
       });
   }
 
-  console.log('Loan Providers and Products seeded.');
+  console.log('Financing Partners and Payment Plan Products seeded.');
 
-  // Seed a test borrower
-  const testBorrower = await prisma.borrower.upsert({
-      where: { id: 'borrower-123' },
+  // Seed a test customer
+  const testCustomer = await prisma.customer.upsert({
+      where: { id: 'customer-123' },
       update: {},
-      create: { id: 'borrower-123' },
+      create: { id: 'customer-123' },
   });
 
   // Seed a Data Provisioning Config for NIb
@@ -270,53 +270,53 @@ async function main() {
   }
 
 
-  // Seed provisioned data for the test borrower
+  // Seed provisioned data for the test customer
   await prisma.provisionedData.upsert({
-      where: { borrowerId_configId: { borrowerId: testBorrower.id, configId: dataConfig.id } },
+      where: { customerId_configId: { customerId: testCustomer.id, configId: dataConfig.id } },
       update: {
         data: JSON.stringify({
-            id: 'borrower-123',
-            'Full Name': 'Test Borrower',
+            id: 'customer-123',
+            'Full Name': 'Test Customer',
             'Monthly Income': 15000,
             'Employment Status': 'Employed'
         })
       },
       create: {
-          borrowerId: testBorrower.id,
+          customerId: testCustomer.id,
           configId: dataConfig.id,
           data: JSON.stringify({
-            id: 'borrower-123',
-            'Full Name': 'Test Borrower',
+            id: 'customer-123',
+            'Full Name': 'Test Customer',
             'Monthly Income': 15000,
             'Employment Status': 'Employed'
           })
       }
   });
-  console.log('Test borrower and provisioned data seeded.');
+  console.log('Test customer and provisioned data seeded.');
 
-  // Seed an existing loan for the test borrower to test repayment
-  const existingLoan = await prisma.loan.findFirst({ where: { borrowerId: testBorrower.id, productId: personalLoan.id }});
-  if (!existingLoan) {
+  // Seed an existing loan for the test customer to test repayment
+  const existingInstallmentPlan = await prisma.installmentPlan.findFirst({ where: { customerId: testCustomer.id, paymentPlanProductId: personalLoan.id }});
+  if (!existingInstallmentPlan) {
     const loanAmount = 5000;
     const serviceFeePercent = 2;
     const serviceFeeAmount = loanAmount * (serviceFeePercent / 100);
     const disbursedDate = new Date();
     const dueDate = addDays(disbursedDate, 30);
 
-    const testApplication = await prisma.loanApplication.create({
+    const testFinancingRequest = await prisma.financingRequest.create({
         data: {
-            borrowerId: testBorrower.id,
-            productId: personalLoan.id,
+            customerId: testCustomer.id,
+            paymentPlanProductId: personalLoan.id,
             loanAmount: loanAmount,
             status: 'DISBURSED'
         }
     });
     
-    await prisma.loan.create({
+    await prisma.installmentPlan.create({
         data: {
-            borrowerId: testBorrower.id,
-            productId: personalLoan.id,
-            loanApplicationId: testApplication.id,
+            customerId: testCustomer.id,
+            paymentPlanProductId: personalLoan.id,
+            financingRequestId: testFinancingRequest.id,
             loanAmount: loanAmount,
             serviceFee: serviceFeeAmount,
             penaltyAmount: 0,
@@ -328,12 +328,12 @@ async function main() {
     });
     
     // Decrement the provider's balance
-    await prisma.loanProvider.update({
+    await prisma.financingPartner.update({
       where: { id: nibBank.id },
       data: { initialBalance: { decrement: loanAmount } }
     });
 
-    console.log(`Created test loan for ${testBorrower.id} with a service fee and daily fee.`);
+    console.log(`Created test installment plan for ${testCustomer.id} with a service fee and daily fee.`);
   }
 
 
