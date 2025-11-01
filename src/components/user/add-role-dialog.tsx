@@ -20,6 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import type { Role, Permissions } from '@/lib/types';
 import { produce } from 'immer';
 import { allMenuItems } from '@/lib/menu-items';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface AddRoleDialogProps {
   isOpen: boolean;
@@ -29,7 +30,7 @@ interface AddRoleDialogProps {
   primaryColor?: string;
 }
 
-const PERMISSION_MODULES: (keyof Permissions)[] = allMenuItems.map(item => item.label.toLowerCase().replace(/\s+/g, '-') as keyof Permissions).concat(['products', 'merchants']);
+const PERMISSION_MODULES: (keyof Permissions)[] = [...new Set(allMenuItems.map(item => item.label.toLowerCase().replace(/\s+/g, '-') as keyof Permissions).concat(['products']))];
 const PERMISSION_ACTIONS: (keyof Permissions[keyof Permissions])[] = ['create', 'read', 'update', 'delete'];
 
 const initialPermissions = PERMISSION_MODULES.reduce((acc, module) => {
@@ -111,41 +112,43 @@ export function AddRoleDialog({ isOpen, onClose, onSave, role, primaryColor = '#
 
           <div>
               <Label>Permissions</Label>
-              <Card className="mt-2">
-                  <Table>
-                      <TableHeader>
-                          <TableRow>
-                              <TableHead>Module</TableHead>
-                              <TableHead className="text-center">Create</TableHead>
-                              <TableHead className="text-center">Read</TableHead>
-                              <TableHead className="text-center">Update</TableHead>
-                              <TableHead className="text-center">Delete</TableHead>
-                              <TableHead className="text-center">Select All</TableHead>
-                          </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                          {PERMISSION_MODULES.map(module => (
-                              <TableRow key={module}>
-                                  <TableCell className="font-medium capitalize">{module.replace(/-/g, ' ')}</TableCell>
-                                  {PERMISSION_ACTIONS.map(action => (
-                                      <TableCell key={action} className="text-center">
-                                          <Checkbox
-                                              checked={permissions[module]?.[action] || false}
-                                              onCheckedChange={() => handlePermissionChange(module, action)}
-                                          />
-                                      </TableCell>
-                                  ))}
-                                  <TableCell className="text-center">
-                                     <Checkbox
-                                        checked={PERMISSION_ACTIONS.every(action => permissions[module]?.[action])}
-                                        onCheckedChange={() => handleSelectAll(module)}
-                                      />
-                                  </TableCell>
-                              </TableRow>
-                          ))}
-                      </TableBody>
-                  </Table>
-              </Card>
+              <ScrollArea className="h-96 w-full mt-2">
+                <Card>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Module</TableHead>
+                                <TableHead className="text-center">Create</TableHead>
+                                <TableHead className="text-center">Read</TableHead>
+                                <TableHead className="text-center">Update</TableHead>
+                                <TableHead className="text-center">Delete</TableHead>
+                                <TableHead className="text-center">Select All</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {PERMISSION_MODULES.map(module => (
+                                <TableRow key={module}>
+                                    <TableCell className="font-medium capitalize">{module.replace(/-/g, ' ')}</TableCell>
+                                    {PERMISSION_ACTIONS.map(action => (
+                                        <TableCell key={action} className="text-center">
+                                            <Checkbox
+                                                checked={permissions[module]?.[action] || false}
+                                                onCheckedChange={() => handlePermissionChange(module, action)}
+                                            />
+                                        </TableCell>
+                                    ))}
+                                    <TableCell className="text-center">
+                                       <Checkbox
+                                          checked={PERMISSION_ACTIONS.every(action => permissions[module]?.[action])}
+                                          onCheckedChange={() => handleSelectAll(module)}
+                                        />
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </Card>
+              </ScrollArea>
           </div>
           
           <DialogFooter>
