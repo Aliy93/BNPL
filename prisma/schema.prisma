@@ -15,18 +15,18 @@ datasource db {
 // --------------------------------------
 
 model User {
-  id                String            @id @default(cuid())
+  id                String    @id @default(cuid())
   fullName          String
-  email             String            @unique
-  phoneNumber       String            @unique
+  email             String    @unique
+  phoneNumber       String    @unique
   password          String
   status            String
   roleId            String
-  role              Role              @relation(fields: [roleId], references: [id])
+  role              Role      @relation(fields: [roleId], references: [id])
   financingPartnerId String?
   financingPartner  FinancingPartner? @relation(fields: [financingPartnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 }
 
 model Role {
@@ -36,21 +36,8 @@ model Role {
   users       User[]
 }
 
-model Merchant {
-  id           String  @id @default(cuid())
-  name         String
-  businessType String
-  contactInfo  String
-  bankAccount  String
-  status       String  @default("Pending") // Pending, Active, Inactive
-  orders       Order[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
 // --------------------------------------
-// LOAN MANAGEMENT (BNPL)
+// BNPL MANAGEMENT
 // --------------------------------------
 
 model FinancingPartner {
@@ -64,7 +51,7 @@ model FinancingPartner {
   initialBalance              Float
   allowCrossProviderLoans     Boolean                       @default(false)
   nplThresholdDays            Int                           @default(60)
-  products                    PaymentPlanProduct[]
+  paymentPlanProducts         PaymentPlanProduct[]
   scoringParameters           ScoringParameter[]
   scoringHistory              ScoringConfigurationHistory[]
   dataProvisioningConfigs     DataProvisioningConfig[]
@@ -72,6 +59,31 @@ model FinancingPartner {
   ledgerAccounts              LedgerAccount[]
   journalEntries              JournalEntry[]
   termsAndConditions          TermsAndConditions[]
+}
+
+model Merchant {
+  id            String  @id @default(cuid())
+  name          String
+  businessType  String
+  contactInfo   String
+  bankAccount   String
+  status        String  @default("Pending") // Pending, Active, Inactive
+  orders        Order[]
+}
+
+model Order {
+  id                 String           @id @default(cuid())
+  merchantId         String
+  merchant           Merchant         @relation(fields: [merchantId], references: [id])
+  customerId         String
+  customer           Customer         @relation(fields: [customerId], references: [id])
+  orderAmount        Float
+  orderDate          DateTime         @default(now())
+  status             String           // e.g., 'Completed', 'Refunded'
+  installmentPlanId  String?          @unique
+  installmentPlan    InstallmentPlan? @relation(fields: [installmentPlanId], references: [id])
+  financingRequestId String?          @unique
+  financingRequest   FinancingRequest?
 }
 
 model PaymentPlanProduct {
@@ -105,37 +117,22 @@ model PaymentPlanProduct {
   @@unique([name, providerId])
 }
 
-model Order {
-  id                String           @id @default(cuid())
-  merchantId        String
-  merchant          Merchant         @relation(fields: [merchantId], references: [id])
-  customerId        String
-  customer          Customer         @relation(fields: [customerId], references: [id])
-  orderAmount       Float
-  status            String // PENDING, COMPLETED, CANCELLED
-  installmentPlan   InstallmentPlan?
-  financingRequest  FinancingRequest?
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-}
-
 model InstallmentPlan {
   id                   String           @id @default(cuid())
   customerId           String
   customer             Customer         @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   paymentPlanProductId String
-  product              PaymentPlanProduct @relation(fields: [paymentPlanProductId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  paymentPlanProduct   PaymentPlanProduct @relation(fields: [paymentPlanProductId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   financingRequestId   String           @unique
   financingRequest     FinancingRequest @relation(fields: [financingRequestId], references: [id], onUpdate: NoAction, onDelete: NoAction)
-  orderId              String           @unique
-  order                Order            @relation(fields: [orderId], references: [id])
+  order                Order?
   loanAmount           Float
   serviceFee           Float
   penaltyAmount        Float
   disbursedDate        DateTime
   dueDate              DateTime
   repaymentStatus      String // Paid, Unpaid
-  repaymentBehavior    String?          // ON_TIME, LATE, EARLY
+  repaymentBehavior    String? // ON_TIME, LATE, EARLY
   repaidAmount         Float?
   payments             Payment[]
   journalEntries       JournalEntry[]
@@ -155,34 +152,34 @@ model Payment {
 }
 
 model Customer {
-  id                String              @id
-  status            String              @default("Active") // Active, NPL
+  id                String             @id
+  status            String             @default("Active") // Active, NPL
   provisionedData   ProvisionedData[]
-  agreements        BorrowerAgreement[]
+  installmentPlans  InstallmentPlan[]
+  agreements        CustomerAgreement[]
   financingRequests FinancingRequest[]
   orders            Order[]
-  installmentPlans  InstallmentPlan[]
 }
 
 // --------------------------------------
-// FINANCING REQUEST & DOCUMENTS
+// FINANCING APPLICATION & DOCUMENTS
 // --------------------------------------
 
 model FinancingRequest {
-  id                   String           @id @default(cuid())
+  id                   String             @id @default(cuid())
   customerId           String
-  customer             Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer             Customer           @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   paymentPlanProductId String
-  product              PaymentPlanProduct @relation(fields: [paymentPlanProductId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  paymentPlanProduct   PaymentPlanProduct @relation(fields: [paymentPlanProductId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   loanAmount           Float?
-  status               String           @default("PENDING_DOCUMENTS") // PENDING_DOCUMENTS, PENDING_REVIEW, NEEDS_REVISION, APPROVED, DISBURSED
-  rejectionReason      String?          @db.Text
+  status               String             @default("PENDING_DOCUMENTS") // PENDING_DOCUMENTS, PENDING_REVIEW, NEEDS_REVISION, APPROVED, DISBURSED
+  rejectionReason      String?            @db.Text
   installmentPlan      InstallmentPlan?
-  order                Order?           @relation(fields: [orderId], references: [id])
-  orderId              String?          @unique
+  order                Order?             @relation(fields: [orderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  orderId              String?            @unique
   uploadedDocuments    UploadedDocument[]
-  createdAt            DateTime         @default(now())
-  updatedAt            DateTime         @updatedAt
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
 }
 
 model RequiredDocument {
@@ -216,40 +213,40 @@ model UploadedDocument {
 // --------------------------------------
 
 model DataProvisioningConfig {
-  id              String                 @id @default(cuid())
+  id              String                   @id @default(cuid())
   providerId      String
-  provider        FinancingPartner       @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  provider        FinancingPartner         @relation(fields: [providerId], references: [id], onDelete: Cascade)
   name            String
-  columns         String                 @db.NVarChar(Max) // JSON array of DataColumn
+  columns         String                   @db.NVarChar(Max) // JSON array of DataColumn
   uploads         DataProvisioningUpload[]
   provisionedData ProvisionedData[]
 }
 
 model DataProvisioningUpload {
-  id              String               @id @default(cuid())
-  configId        String
-  config          DataProvisioningConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
-  fileName        String
-  rowCount        Int
-  uploadedBy      String
-  uploadedAt      DateTime             @default(now())
-  provisionedData ProvisionedData[]
-  LoanProduct     PaymentPlanProduct[]
+  id                String             @id @default(cuid())
+  configId          String
+  config            DataProvisioningConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  fileName          String
+  rowCount          Int
+  uploadedBy        String
+  uploadedAt        DateTime           @default(now())
+  provisionedData   ProvisionedData[]
+  paymentPlanProduct PaymentPlanProduct[]
 }
 
 model ProvisionedData {
-  id          String                 @id @default(cuid())
-  borrowerId  String
-  borrower    Customer               @relation(fields: [borrowerId], references: [id], onDelete: Cascade)
-  configId    String
-  config      DataProvisioningConfig @relation(fields: [configId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  uploadId    String?
-  upload      DataProvisioningUpload? @relation(fields: [uploadId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  data        String                 // JSON string of the uploaded data for this borrower
-  createdAt   DateTime               @default(now())
-  updatedAt   DateTime               @updatedAt
+  id        String                 @id @default(cuid())
+  customerId String
+  customer  Customer               @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  configId  String
+  config    DataProvisioningConfig @relation(fields: [configId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  uploadId  String?
+  upload    DataProvisioningUpload? @relation(fields: [uploadId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  data      String                 // JSON string of the uploaded data for this borrower
+  createdAt DateTime               @default(now())
+  updatedAt DateTime               @updatedAt
 
-  @@unique([borrowerId, configId])
+  @@unique([customerId, configId])
 }
 
 
@@ -292,12 +289,12 @@ model ScoringConfigurationHistory {
 }
 
 model ScoringConfigurationProduct {
-  id         String                      @id @default(cuid())
-  configId   String
-  config     ScoringConfigurationHistory @relation(fields: [configId], references: [id], onDelete: Cascade)
-  productId  String
-  product    PaymentPlanProduct          @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  assignedAt DateTime                    @default(now())
+  id        String                      @id @default(cuid())
+  configId  String
+  config    ScoringConfigurationHistory @relation(fields: [configId], references: [id], onDelete: Cascade)
+  productId String
+  product   PaymentPlanProduct          @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assignedAt DateTime                   @default(now())
   assignedBy String
 
   @@unique([configId, productId])
@@ -323,7 +320,7 @@ model LedgerAccount {
 model JournalEntry {
   id              String           @id @default(cuid())
   providerId      String
-  provider        FinancingPartner @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  provider        FinancingPartner @relation(fields: [providerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   installmentPlanId String?
   installmentPlan InstallmentPlan? @relation(fields: [installmentPlanId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   date            DateTime
@@ -354,20 +351,20 @@ model TermsAndConditions {
   version    Int
   isActive   Boolean             @default(false)
   publishedAt DateTime
-  agreements BorrowerAgreement[]
+  agreements CustomerAgreement[]
 
   @@unique([providerId, version])
 }
 
-model BorrowerAgreement {
+model CustomerAgreement {
   id         String             @id @default(cuid())
-  borrowerId String
-  borrower   Customer           @relation(fields: [borrowerId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
   termsId    String
   terms      TermsAndConditions @relation(fields: [termsId], references: [id], onDelete: Cascade)
   acceptedAt DateTime           @default(now())
 
-  @@unique([borrowerId, termsId])
+  @@unique([customerId, termsId])
 }
 
 // --------------------------------------
@@ -378,7 +375,7 @@ model Tax {
   id        String  @id @default(cuid())
   name      String?
   rate      Float   @default(0)
-  appliedTo String  // JSON string: e.g., ["serviceFee", "interest", "penalty"]
+  appliedTo String // JSON string: e.g., ["serviceFee", "interest", "penalty"]
 }
 
 
