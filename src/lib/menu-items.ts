@@ -9,6 +9,7 @@ import {
   Download,
   FolderArchive,
   BookUser,
+  Store,
 } from 'lucide-react';
 
 export const allMenuItems = [
@@ -17,6 +18,12 @@ export const allMenuItems = [
     label: 'Dashboard',
     icon: LayoutDashboard,
     roles: ['Super Admin', 'Loan Manager', 'Auditor', 'Loan Provider'],
+  },
+  {
+    path: '/admin/merchants',
+    label: 'Merchants',
+    icon: Store,
+    roles: ['Super Admin', 'Loan Manager'],
   },
   {
     path: '/admin/reports',
