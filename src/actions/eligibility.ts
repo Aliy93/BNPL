@@ -10,7 +10,7 @@
 import prisma from '@/lib/prisma';
 import { evaluateCondition } from '@/lib/utils';
 import type { ScoringParameter as ScoringParameterType } from '@/lib/types';
-import { Loan, LoanProduct, Prisma, RepaymentBehavior } from '@prisma/client';
+import { InstallmentPlan, PaymentPlanProduct, Prisma, RepaymentBehavior } from '@prisma/client';
 
 
 // Helper to convert strings to camelCase
@@ -20,14 +20,14 @@ const toCamelCase = (str: string) => {
     return str.replace(/[^a-zA-Z0-9]+(.)?/g, (match, chr) => chr ? chr.toUpperCase() : '').replace(/^./, (match) => match.toLowerCase());
 };
 
-async function getBorrowerDataForScoring(
-    borrowerId: string, 
+async function getCustomerDataForScoring(
+    customerId: string, 
     providerId: string, 
 ): Promise<Record<string, any>> {
 
     const provisionedDataEntries = await prisma.provisionedData.findMany({
         where: { 
-            borrowerId,
+            customerId,
             config: {
                 providerId: providerId,
             }
@@ -36,7 +36,7 @@ async function getBorrowerDataForScoring(
     });
 
 
-    const combinedData: Record<string, any> = { id: borrowerId };
+    const combinedData: Record<string, any> = { id: customerId };
     
     for (const entry of provisionedDataEntries) {
         try {
@@ -56,26 +56,26 @@ async function getBorrowerDataForScoring(
         }
     }
     
-    const previousLoans = await prisma.loan.findMany({
-        where: { borrowerId },
+    const previousInstallments = await prisma.installmentPlan.findMany({
+        where: { customerId },
         select: { repaymentBehavior: true },
     });
 
-    combinedData['totalLoansCount'] = previousLoans.length;
-    combinedData['loansOnTime'] = previousLoans.filter(l => l.repaymentBehavior === 'ON_TIME').length;
-    combinedData['loansLate'] = previousLoans.filter(l => l.repaymentBehavior === 'LATE').length;
-    combinedData['loansEarly'] = previousLoans.filter(l => l.repaymentBehavior === 'EARLY').length;
+    combinedData['totalLoansCount'] = previousInstallments.length;
+    combinedData['loansOnTime'] = previousInstallments.filter(l => l.repaymentBehavior === 'ON_TIME').length;
+    combinedData['loansLate'] = previousInstallments.filter(l => l.repaymentBehavior === 'LATE').length;
+    combinedData['loansEarly'] = previousInstallments.filter(l => l.repaymentBehavior === 'EARLY').length;
     
     return combinedData;
 }
 
 
 async function calculateScoreForProvider(
-    borrowerId: string,
+    customerId: string,
     providerId: string,
 ): Promise<number> {
     
-    const borrowerDataForScoring = await getBorrowerDataForScoring(borrowerId, providerId);
+    const customerDataForScoring = await getCustomerDataForScoring(customerId, providerId);
     
     const parameters: ScoringParameterType[] = await prisma.scoringParameter.findMany({
         where: { providerId },
@@ -96,7 +96,7 @@ async function calculateScoreForProvider(
         
         relevantRules.forEach(rule => {
             const fieldNameInCamelCase = toCamelCase(rule.field);
-            const inputValue = borrowerDataForScoring[fieldNameInCamelCase];
+            const inputValue = customerDataForScoring[fieldNameInCamelCase];
             
             if (evaluateCondition(inputValue, rule.condition, rule.value)) {
                 if (rule.score > maxScoreForParam) {
@@ -113,21 +113,21 @@ async function calculateScoreForProvider(
 }
 
 
-export async function checkLoanEligibility(borrowerId: string, providerId: string, productId: string): Promise<{isEligible: boolean; reason: string; score: number, maxLoanAmount: number}> {
+export async function checkLoanEligibility(customerId: string, providerId: string, productId: string): Promise<{isEligible: boolean; reason: string; score: number, maxLoanAmount: number}> {
   try {
-    const borrower = await prisma.borrower.findUnique({
-        where: { id: borrowerId }
+    const customer = await prisma.customer.findUnique({
+        where: { id: customerId }
     });
 
-    if (!borrower) {
-      return { isEligible: false, reason: 'Borrower profile not found.', score: 0, maxLoanAmount: 0 };
+    if (!customer) {
+      return { isEligible: false, reason: 'Customer profile not found.', score: 0, maxLoanAmount: 0 };
     }
 
-    if (borrower.status === 'NPL') {
+    if (customer.status === 'NPL') {
         return { isEligible: false, reason: 'Your account is currently restricted due to a non-performing loan. Please contact support.', score: 0, maxLoanAmount: 0 };
     }
     
-    const product = await prisma.loanProduct.findUnique({ 
+    const product = await prisma.paymentPlanProduct.findUnique({ 
         where: { id: productId },
     });
 
@@ -135,27 +135,27 @@ export async function checkLoanEligibility(borrowerId: string, providerId: strin
         return { isEligible: false, reason: 'Loan product not found.', score: 0, maxLoanAmount: 0 };
     }
     
-    type LoanWithProduct = Loan & { product: LoanProduct };
+    type InstallmentPlanWithProduct = InstallmentPlan & { product: PaymentPlanProduct };
     
-    const allActiveLoans: LoanWithProduct[] = await prisma.loan.findMany({
+    const allActiveInstallments: InstallmentPlanWithProduct[] = await prisma.installmentPlan.findMany({
         where: {
-            borrowerId: borrowerId,
+            customerId: customerId,
             repaymentStatus: 'Unpaid'
         },
         include: { product: true }
     });
 
-    const hasActiveLoanOfSameType = allActiveLoans.some((loan: LoanWithProduct) => loan.productId === productId);
+    const hasActiveLoanOfSameType = allActiveInstallments.some((plan: InstallmentPlanWithProduct) => plan.paymentPlanProductId === productId);
     if (hasActiveLoanOfSameType) {
-        return { isEligible: false, reason: `You already have an active loan for the "${product.name}" product.`, score: 0, maxLoanAmount: 0 };
+        return { isEligible: false, reason: `You already have an active installment plan for the "${product.name}" product.`, score: 0, maxLoanAmount: 0 };
     }
     
-    if (!product.allowConcurrentLoans && allActiveLoans.length > 0) {
-        const otherProductNames = allActiveLoans.map(l => `"${l.product.name}"`).join(', ');
-        return { isEligible: false, reason: `This is an exclusive loan product. You must repay your active loans (${otherProductNames}) before applying.`, score: 0, maxLoanAmount: 0 };
+    if (!product.allowConcurrentLoans && allActiveInstallments.length > 0) {
+        const otherProductNames = allActiveInstallments.map(l => `"${l.product.name}"`).join(', ');
+        return { isEligible: false, reason: `This is an exclusive loan product. You must repay your active installments (${otherProductNames}) before applying.`, score: 0, maxLoanAmount: 0 };
     }
     
-    const borrowerDataForScoring = await getBorrowerDataForScoring(borrowerId, providerId);
+    const customerDataForScoring = await getCustomerDataForScoring(customerId, providerId);
     
     if (product.dataProvisioningEnabled && product.eligibilityFilter) {
         const filter = JSON.parse(product.eligibilityFilter as string);
@@ -163,8 +163,8 @@ export async function checkLoanEligibility(borrowerId: string, providerId: strin
 
         const isMatch = filterKeys.every(key => {
             const filterValue = String(filter[key]).toLowerCase();
-            const borrowerValue = String(borrowerDataForScoring[toCamelCase(key)] || '').toLowerCase();
-            return filterValue.split(',').map(s => s.trim()).includes(borrowerValue);
+            const customerValue = String(customerDataForScoring[toCamelCase(key)] || '').toLowerCase();
+            return filterValue.split(',').map(s => s.trim()).includes(customerValue);
         });
 
         if (!isMatch) {
@@ -178,7 +178,7 @@ export async function checkLoanEligibility(borrowerId: string, providerId: strin
         return { isEligible: false, reason: 'This provider has not configured their credit scoring rules.', score: 0, maxLoanAmount: 0 };
     }
     
-    const score = await calculateScoreForProvider(borrowerId, providerId);
+    const score = await calculateScoreForProvider(customerId, providerId);
 
     const applicableTier = await prisma.loanAmountTier.findFirst({
         where: {
@@ -194,14 +194,14 @@ export async function checkLoanEligibility(borrowerId: string, providerId: strin
         return { isEligible: false, reason: 'Your credit score does not meet the minimum requirement for a loan with this provider.', score, maxLoanAmount: 0 };
     }
     
-    const totalOutstandingPrincipal = allActiveLoans.reduce((sum, loan) => sum + loan.loanAmount - (loan.repaidAmount || 0), 0);
+    const totalOutstandingPrincipal = allActiveInstallments.reduce((sum, plan) => sum + plan.loanAmount - (plan.repaidAmount || 0), 0);
     
     const maxLoanAmount = productMaxLoan;
     
     const availableToBorrow = Math.max(0, maxLoanAmount - totalOutstandingPrincipal);
     
-    if (availableToBorrow <= 0 && allActiveLoans.length > 0) {
-         return { isEligible: true, reason: `You have reached your credit limit with this provider. Your current outstanding balance is ${totalOutstandingPrincipal}. Please repay your active loans to be eligible for more.`, score, maxLoanAmount: 0 };
+    if (availableToBorrow <= 0 && allActiveInstallments.length > 0) {
+         return { isEligible: true, reason: `You have reached your credit limit with this provider. Your current outstanding balance is ${totalOutstandingPrincipal}. Please repay your active installments to be eligible for more.`, score, maxLoanAmount: 0 };
     }
         
     return { isEligible: true, reason: 'Congratulations! You are eligible for a loan.', score, maxLoanAmount: availableToBorrow };
