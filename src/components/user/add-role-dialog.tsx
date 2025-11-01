@@ -29,7 +29,7 @@ interface AddRoleDialogProps {
   primaryColor?: string;
 }
 
-const PERMISSION_MODULES: (keyof Permissions)[] = allMenuItems.map(item => item.label.toLowerCase().replace(/\s+/g, '-') as keyof Permissions).concat(['products']);
+const PERMISSION_MODULES: (keyof Permissions)[] = allMenuItems.map(item => item.label.toLowerCase().replace(/\s+/g, '-') as keyof Permissions).concat(['products', 'merchants']);
 const PERMISSION_ACTIONS: (keyof Permissions[keyof Permissions])[] = ['create', 'read', 'update', 'delete'];
 
 const initialPermissions = PERMISSION_MODULES.reduce((acc, module) => {
@@ -42,35 +42,43 @@ export function AddRoleDialog({ isOpen, onClose, onSave, role, primaryColor = '#
   const [permissions, setPermissions] = useState<Permissions>(initialPermissions);
 
   useEffect(() => {
-    if (role) {
-      setRoleName(role.name);
-      // Deep merge existing permissions with the full structure to handle new modules
-      const mergedPermissions = produce(initialPermissions, draft => {
-        for (const module in role.permissions) {
-            if (draft[module as keyof Permissions]) {
-                Object.assign(draft[module as keyof Permissions], role.permissions[module as keyof Permissions]);
-            }
+    if (isOpen) {
+        if (role) {
+            setRoleName(role.name);
+            // Deep merge existing permissions with the full structure to handle new modules
+            const mergedPermissions = produce(initialPermissions, draft => {
+                for (const module in role.permissions) {
+                    if (draft[module as keyof Permissions]) {
+                        Object.assign(draft[module as keyof Permissions], role.permissions[module as keyof Permissions]);
+                    }
+                }
+            });
+            setPermissions(mergedPermissions);
+        } else {
+            setRoleName('');
+            setPermissions(initialPermissions);
         }
-      });
-      setPermissions(mergedPermissions);
-    } else {
-      setRoleName('');
-      setPermissions(initialPermissions);
     }
   }, [role, isOpen]);
 
   const handlePermissionChange = (module: keyof Permissions, action: keyof Permissions[keyof Permissions]) => {
       setPermissions(
           produce(draft => {
+              if (!draft[module]) {
+                draft[module] = { create: false, read: false, update: false, delete: false };
+              }
               draft[module][action] = !draft[module][action];
           })
       )
   };
 
   const handleSelectAll = (module: keyof Permissions) => {
-    const allChecked = PERMISSION_ACTIONS.every(action => permissions[module][action]);
+    const allChecked = PERMISSION_ACTIONS.every(action => permissions[module]?.[action]);
     setPermissions(
       produce(draft => {
+        if (!draft[module]) {
+            draft[module] = { create: false, read: false, update: false, delete: false };
+        }
         PERMISSION_ACTIONS.forEach(action => {
             draft[module][action] = !allChecked;
         });
@@ -118,7 +126,7 @@ export function AddRoleDialog({ isOpen, onClose, onSave, role, primaryColor = '#
                       <TableBody>
                           {PERMISSION_MODULES.map(module => (
                               <TableRow key={module}>
-                                  <TableCell className="font-medium capitalize">{module.replace('-', ' ')}</TableCell>
+                                  <TableCell className="font-medium capitalize">{module.replace(/-/g, ' ')}</TableCell>
                                   {PERMISSION_ACTIONS.map(action => (
                                       <TableCell key={action} className="text-center">
                                           <Checkbox
