@@ -11,9 +11,9 @@ import { calculateTotalRepayable } from '@/lib/loan-calculator';
 import { startOfDay } from 'date-fns';
 import { createAuditLog } from '@/lib/audit-log';
 
-async function getBorrowerBalance(borrowerId: string): Promise<number> {
+async function getCustomerBalance(customerId: string): Promise<number> {
     const provisionedData = await prisma.provisionedData.findFirst({
-        where: { borrowerId },
+        where: { customerId },
         orderBy: { createdAt: 'desc' },
     });
 
@@ -25,7 +25,7 @@ async function getBorrowerBalance(borrowerId: string): Promise<number> {
                 return parseFloat(data[balanceKey]) || 0;
             }
         } catch (e) {
-            console.error(`Could not parse provisioned data for borrower ${borrowerId}`, e);
+            console.error(`Could not parse provisioned data for customer ${customerId}`, e);
             return 0;
         }
     }
@@ -38,8 +38,8 @@ export async function processAutomatedRepayments(): Promise<{ success: boolean; 
 
     const taxConfig = await prisma.tax.findFirst();
 
-    // 1. Find all unpaid loans that are overdue
-    const overdueLoans = await prisma.loan.findMany({
+    // 1. Find all unpaid installments that are overdue
+    const overdueInstallments = await prisma.installmentPlan.findMany({
         where: {
             repaymentStatus: 'Unpaid',
             dueDate: {
@@ -59,28 +59,28 @@ export async function processAutomatedRepayments(): Promise<{ success: boolean; 
         },
     });
 
-    if (overdueLoans.length === 0) {
-        console.log('No overdue loans found.');
-        return { success: true, message: 'No overdue loans to process.', processedCount: 0 };
+    if (overdueInstallments.length === 0) {
+        console.log('No overdue installments found.');
+        return { success: true, message: 'No overdue installments to process.', processedCount: 0 };
     }
 
     let processedCount = 0;
 
-    for (const loan of overdueLoans) {
-        const { total, principal, interest, penalty, serviceFee } = calculateTotalRepayable(loan as any, loan.product, taxConfig, today);
-        const alreadyRepaid = loan.repaidAmount || 0;
+    for (const installment of overdueInstallments) {
+        const { total, principal, interest, penalty, serviceFee } = calculateTotalRepayable(installment as any, installment.product, taxConfig, today);
+        const alreadyRepaid = installment.repaidAmount || 0;
         const totalDue = total - alreadyRepaid;
 
         if (totalDue <= 0) {
             continue; // Skip if already paid off
         }
 
-        const borrowerBalance = await getBorrowerBalance(loan.borrowerId);
+        const customerBalance = await getCustomerBalance(installment.customerId);
         
-        if (borrowerBalance >= totalDue) {
+        if (customerBalance >= totalDue) {
             try {
                 await prisma.$transaction(async (tx) => {
-                    const provider = loan.product.provider;
+                    const provider = installment.product.provider;
                     
                     // Ledger Accounts
                     const principalReceivable = provider.ledgerAccounts.find(a => a.category === 'Principal' && a.type === 'Receivable');
@@ -102,17 +102,17 @@ export async function processAutomatedRepayments(): Promise<{ success: boolean; 
                      const journalEntry = await tx.journalEntry.create({
                         data: {
                             providerId: provider.id,
-                            loanId: loan.id,
+                            installmentPlanId: installment.id,
                             date: today,
-                            description: `Automated repayment for loan ${loan.id}`,
+                            description: `Automated repayment for installment ${installment.id}`,
                         }
                     });
                     
                     let paymentAmount = totalDue;
 
-                    const penaltyDue = Math.max(0, penalty - (loan.repaidAmount || 0));
-                    const serviceFeeDue = Math.max(0, serviceFee - Math.max(0, (loan.repaidAmount || 0) - penalty));
-                    const interestDue = Math.max(0, interest - Math.max(0, (loan.repaidAmount || 0) - penalty - serviceFee));
+                    const penaltyDue = Math.max(0, penalty - (installment.repaidAmount || 0));
+                    const serviceFeeDue = Math.max(0, serviceFee - Math.max(0, (installment.repaidAmount || 0) - penalty));
+                    const interestDue = Math.max(0, interest - Math.max(0, (installment.repaidAmount || 0) - penalty - serviceFee));
 
                     const penaltyToPay = Math.min(paymentAmount, penaltyDue);
                     if (penaltyToPay > 0) {
@@ -159,7 +159,7 @@ export async function processAutomatedRepayments(): Promise<{ success: boolean; 
                     
                     await tx.payment.create({
                         data: {
-                            loanId: loan.id,
+                            installmentPlanId: installment.id,
                             amount: totalDue,
                             date: today,
                             outstandingBalanceBeforePayment: totalDue,
@@ -167,10 +167,10 @@ export async function processAutomatedRepayments(): Promise<{ success: boolean; 
                         },
                     });
 
-                    await tx.loan.update({
-                        where: { id: loan.id },
+                    await tx.installmentPlan.update({
+                        where: { id: installment.id },
                         data: {
-                            repaidAmount: (loan.repaidAmount || 0) + totalDue,
+                            repaidAmount: (installment.repaidAmount || 0) + totalDue,
                             repaymentStatus: 'Paid',
                         },
                     });
@@ -178,11 +178,11 @@ export async function processAutomatedRepayments(): Promise<{ success: boolean; 
                 
                 processedCount++;
                 const logDetails = {
-                    loanId: loan.id,
-                    borrowerId: loan.borrowerId,
+                    installmentPlanId: installment.id,
+                    customerId: installment.customerId,
                     amount: totalDue
                 };
-                await createAuditLog({ actorId: 'system', action: 'AUTOMATED_REPAYMENT_SUCCESS', entity: 'LOAN', entityId: loan.id, details: logDetails });
+                await createAuditLog({ actorId: 'system', action: 'AUTOMATED_REPAYMENT_SUCCESS', entity: 'INSTALLMENT_PLAN', entityId: installment.id, details: logDetails });
                 console.log(JSON.stringify({
                     action: 'AUTOMATED_REPAYMENT_SUCCESS',
                     actorId: 'system',
@@ -191,11 +191,11 @@ export async function processAutomatedRepayments(): Promise<{ success: boolean; 
 
             } catch (error) {
                 const failureDetails = {
-                    loanId: loan.id,
-                    borrowerId: loan.borrowerId,
+                    installmentPlanId: installment.id,
+                    customerId: installment.customerId,
                     error: (error as Error).message
                 };
-                await createAuditLog({ actorId: 'system', action: 'AUTOMATED_REPAYMENT_FAILURE', entity: 'LOAN', entityId: loan.id, details: failureDetails });
+                await createAuditLog({ actorId: 'system', action: 'AUTOMATED_REPAYMENT_FAILURE', entity: 'INSTALLMENT_PLAN', entityId: installment.id, details: failureDetails });
                  console.error(JSON.stringify({
                     action: 'AUTOMATED_REPAYMENT_FAILURE',
                     actorId: 'system',
@@ -204,12 +204,12 @@ export async function processAutomatedRepayments(): Promise<{ success: boolean; 
             }
         } else {
             const skipDetails = {
-                loanId: loan.id,
-                borrowerId: loan.borrowerId,
-                balance: borrowerBalance,
+                installmentPlanId: installment.id,
+                customerId: installment.customerId,
+                balance: customerBalance,
                 amountDue: totalDue
             };
-            await createAuditLog({ actorId: 'system', action: 'AUTOMATED_REPAYMENT_SKIPPED', entity: 'LOAN', entityId: loan.id, details: { reason: 'Insufficient funds', ...skipDetails } });
+            await createAuditLog({ actorId: 'system', action: 'AUTOMATED_REPAYMENT_SKIPPED', entity: 'INSTALLMENT_PLAN', entityId: installment.id, details: { reason: 'Insufficient funds', ...skipDetails } });
              console.log(JSON.stringify({
                 action: 'AUTOMATED_REPAYMENT_SKIPPED',
                 actorId: 'system',
@@ -219,6 +219,6 @@ export async function processAutomatedRepayments(): Promise<{ success: boolean; 
         }
     }
     
-    console.log(`Automated repayment process finished. Processed ${processedCount} loans.`);
-    return { success: true, message: `Processed ${overdueLoans.length} overdue loans, successfully repaid ${processedCount}.`, processedCount };
+    console.log(`Automated repayment process finished. Processed ${processedCount} installments.`);
+    return { success: true, message: `Processed ${overdueInstallments.length} overdue installments, successfully repaid ${processedCount}.`, processedCount };
 }

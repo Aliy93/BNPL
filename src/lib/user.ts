@@ -17,7 +17,7 @@ export async function getUserFromSession() {
       where: { id: session.userId },
       include: {
         role: true,
-        loanProvider: true,
+        financingPartner: true,
       },
     });
 
@@ -29,8 +29,9 @@ export async function getUserFromSession() {
     
     const authUser: AuthUser = {
       ...userWithoutPassword,
+      financingPartnerId: user.financingPartnerId,
       role: user.role.name as AuthUser['role'],
-      providerName: user.loanProvider?.name,
+      providerName: user.financingPartner?.name,
       permissions: JSON.parse(user.role.permissions as string) as Permissions,
     };
 

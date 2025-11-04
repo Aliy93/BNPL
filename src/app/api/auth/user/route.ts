@@ -1,8 +1,9 @@
 
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
 import prisma from '@/lib/prisma';
-import type { User as PrismaUser, Role as PrismaRole, LoanProvider as PrismaLoanProvider } from '@prisma/client';
+import type { User as PrismaUser, Role as PrismaRole, FinancingPartner as PrismaFinancingPartner } from '@prisma/client';
 import type { User as AuthUser, Permissions } from '@/lib/types';
 
 
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
       where: { id: session.userId },
       include: {
         role: true,
-        loanProvider: true,
+        financingPartner: true,
       },
     });
 
@@ -30,8 +31,9 @@ export async function GET(req: NextRequest) {
     
     const authUser: AuthUser = {
       ...userWithoutPassword,
+      financingPartnerId: user.financingPartnerId,
       role: user.role.name as AuthUser['role'],
-      providerName: user.loanProvider?.name,
+      providerName: user.financingPartner?.name,
       permissions: JSON.parse(user.role.permissions as string) as Permissions,
     };
 

@@ -1,4 +1,5 @@
 
+
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getSession } from '@/lib/session';
@@ -13,7 +14,7 @@ const updateBorrowerStatusSchema = z.object({
 
 export async function GET(req: NextRequest) {
     try {
-        const borrowers = await prisma.borrower.findMany({
+        const customers = await prisma.customer.findMany({
             include: {
                 provisionedData: { // Fetch all provisioned data for each borrower
                     orderBy: {
@@ -26,9 +27,9 @@ export async function GET(req: NextRequest) {
             }
         });
 
-        const formattedBorrowers = borrowers.map(borrower => {
+        const formattedCustomers = customers.map(customer => {
             // Merge all provisioned data for a borrower into a single object
-            const combinedData = borrower.provisionedData.reduce((acc, entry) => {
+            const combinedData = customer.provisionedData.reduce((acc, entry) => {
                 try {
                     const parsedData = JSON.parse(entry.data as string);
                     // Standardize keys to camelCase for consistency
@@ -43,15 +44,15 @@ export async function GET(req: NextRequest) {
             }, {});
 
             return {
-                id: borrower.id,
+                id: customer.id,
                 ...combinedData,
             };
         });
 
-        return NextResponse.json(formattedBorrowers);
+        return NextResponse.json(formattedCustomers);
 
     } catch (error) {
-        console.error('Failed to fetch borrowers:', error);
+        console.error('Failed to fetch customers:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
@@ -67,17 +68,17 @@ export async function PUT(req: NextRequest) {
         const body = await req.json();
         const { borrowerId, status } = updateBorrowerStatusSchema.parse(body);
 
-        const updatedBorrower = await prisma.borrower.update({
+        const updatedCustomer = await prisma.customer.update({
             where: { id: borrowerId },
             data: { status },
         });
 
-        return NextResponse.json(updatedBorrower);
+        return NextResponse.json(updatedCustomer);
     } catch (error) {
         if (error instanceof z.ZodError) {
             return NextResponse.json({ error: error.errors }, { status: 400 });
         }
-        console.error('Error updating borrower status:', error);
+        console.error('Error updating customer status:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

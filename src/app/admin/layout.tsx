@@ -1,4 +1,5 @@
 
+
 import { AuthProvider } from '@/hooks/use-auth';
 import { ProtectedLayout } from '@/components/admin/protected-layout';
 import type { LoanProvider as LoanProviderType } from '@/lib/types';
@@ -8,7 +9,7 @@ import prisma from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 
 async function getProviders(): Promise<LoanProviderType[]> {
-    const providers = await prisma.loanProvider.findMany({
+    const providers = await prisma.financingPartner.findMany({
         orderBy: {
             displayOrder: 'asc'
         }

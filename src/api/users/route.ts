@@ -21,7 +21,7 @@ export async function GET() {
     const users = await prisma.user.findMany({
       include: {
         role: true,
-        loanProvider: true,
+        financingPartner: true,
       },
       orderBy: {
         createdAt: 'desc',
@@ -34,8 +34,8 @@ export async function GET() {
       email: user.email,
       phoneNumber: user.phoneNumber,
       role: user.role.name,
-      providerName: user.loanProvider?.name || 'N/A',
-      providerId: user.loanProvider?.id,
+      providerName: user.financingPartner?.name || 'N/A',
+      providerId: user.financingPartner?.id,
       status: user.status,
     }));
 
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
     };
     
     if (providerId) {
-        dataToCreate.loanProviderId = providerId;
+        dataToCreate.financingPartnerId = providerId;
     }
 
     const newUser = await prisma.user.create({
@@ -137,9 +137,9 @@ export async function PUT(req: NextRequest) {
     
     // Handle providerId relationship
     if (providerId === null) {
-        dataToUpdate.loanProviderId = null;
+        dataToUpdate.financingPartnerId = null;
     } else if (providerId) {
-        dataToUpdate.loanProviderId = providerId;
+        dataToUpdate.financingPartnerId = providerId;
     }
 
 

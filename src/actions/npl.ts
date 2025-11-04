@@ -13,7 +13,7 @@ export async function updateNplStatus(): Promise<{ success: boolean; message: st
     console.log('Starting NPL status update process...');
     
     // Get all providers and their NPL thresholds
-    const providers = await prisma.loanProvider.findMany({
+    const providers = await prisma.financingPartner.findMany({
         select: {
             id: true,
             nplThresholdDays: true,
@@ -38,31 +38,31 @@ export async function updateNplStatus(): Promise<{ success: boolean; message: st
 
         if (productIds.length === 0) continue;
 
-        // Find all unpaid loans for this provider where the due date has passed the NPL threshold
-        const overdueLoans = await prisma.loan.findMany({
+        // Find all unpaid installments for this provider where the due date has passed the NPL threshold
+        const overdueInstallments = await prisma.installmentPlan.findMany({
             where: {
-                productId: { in: productIds },
+                paymentPlanProductId: { in: productIds },
                 repaymentStatus: 'Unpaid',
                 disbursedDate: {
                     lt: nplThresholdDate,
                 },
             },
             select: {
-                borrowerId: true,
+                customerId: true,
             },
         });
 
-        if (overdueLoans.length === 0) {
-            continue; // No NPL loans for this provider
+        if (overdueInstallments.length === 0) {
+            continue; // No NPL installments for this provider
         }
         
-        const borrowerIdsToFlag = [...new Set(overdueLoans.map(loan => loan.borrowerId))];
+        const customerIdsToFlag = [...new Set(overdueInstallments.map(installment => installment.customerId))];
         
         try {
-            const { count } = await prisma.borrower.updateMany({
+            const { count } = await prisma.customer.updateMany({
                 where: {
                     id: {
-                        in: borrowerIdsToFlag,
+                        in: customerIdsToFlag,
                     },
                     status: {
                         not: 'NPL',
@@ -74,7 +74,7 @@ export async function updateNplStatus(): Promise<{ success: boolean; message: st
             });
             
             totalUpdatedCount += count;
-            console.log(`For provider ${provider.id}, updated ${count} borrowers to NPL status.`);
+            console.log(`For provider ${provider.id}, updated ${count} customers to NPL status.`);
 
         } catch (error) {
             console.error(`Failed to update NPL statuses for provider ${provider.id}:`, error);
@@ -82,6 +82,6 @@ export async function updateNplStatus(): Promise<{ success: boolean; message: st
         }
     }
 
-    console.log(`NPL status update process finished. Updated a total of ${totalUpdatedCount} borrowers.`);
-    return { success: true, message: `Successfully updated a total of ${totalUpdatedCount} borrowers to NPL status.`, updatedCount: totalUpdatedCount };
+    console.log(`NPL status update process finished. Updated a total of ${totalUpdatedCount} customers.`);
+    return { success: true, message: `Successfully updated a total of ${totalUpdatedCount} customers to NPL status.`, updatedCount: totalUpdatedCount };
 }
