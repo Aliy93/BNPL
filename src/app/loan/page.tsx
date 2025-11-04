@@ -1,4 +1,5 @@
 
+
 import { DashboardClient } from '@/components/dashboard/dashboard-client';
 import type { LoanDetails, LoanProvider, FeeRule, PenaltyRule, Tax } from '@/lib/types';
 import { Suspense } from 'react';
@@ -19,7 +20,7 @@ async function getProviders(): Promise<LoanProvider[]> {
     try {
         const providers = await prisma.financingPartner.findMany({
             include: {
-                products: {
+                paymentPlans: {
                     where: {
                         status: 'Active'
                     },
@@ -44,7 +45,7 @@ async function getProviders(): Promise<LoanProvider[]> {
             initialBalance: p.initialBalance,
             allowCrossProviderLoans: p.allowCrossProviderLoans,
             nplThresholdDays: p.nplThresholdDays,
-            products: p.products.map(prod => ({
+            products: p.paymentPlans.map(prod => ({
                 id: prod.id,
                 providerId: p.id,
                 name: prod.name,
@@ -73,7 +74,7 @@ async function getLoanHistory(customerId: string): Promise<LoanDetails[]> {
         const loans = await prisma.installmentPlan.findMany({
             where: { customerId },
             include: {
-                product: {
+                paymentPlanProduct: {
                     include: {
                         provider: true
                     }
@@ -92,8 +93,8 @@ async function getLoanHistory(customerId: string): Promise<LoanDetails[]> {
         return loans.map(loan => ({
             id: loan.id,
             borrowerId: loan.customerId,
-            providerName: loan.product.provider.name,
-            productName: loan.product.name,
+            providerName: loan.paymentPlanProduct.provider.name,
+            productName: loan.paymentPlanProduct.name,
             loanAmount: loan.loanAmount,
             serviceFee: loan.serviceFee,
             disbursedDate: loan.disbursedDate,
@@ -102,12 +103,12 @@ async function getLoanHistory(customerId: string): Promise<LoanDetails[]> {
             repaidAmount: loan.repaidAmount || 0,
             penaltyAmount: loan.penaltyAmount,
             product: {
-              ...loan.product,
-              id: loan.product.id,
-              providerId: loan.product.providerId,
-              serviceFee: safeJsonParse(loan.product.serviceFee, { type: 'percentage', value: 0 }),
-              dailyFee: safeJsonParse(loan.product.dailyFee, { type: 'percentage', value: 0 }),
-              penaltyRules: safeJsonParse(loan.product.penaltyRules, []),
+              ...loan.paymentPlanProduct,
+              id: loan.paymentPlanProduct.id,
+              providerId: loan.paymentPlanProduct.providerId,
+              serviceFee: safeJsonParse(loan.paymentPlanProduct.serviceFee, { type: 'percentage', value: 0 }),
+              dailyFee: safeJsonParse(loan.paymentPlanProduct.dailyFee, { type: 'percentage', value: 0 }),
+              penaltyRules: safeJsonParse(loan.paymentPlanProduct.penaltyRules, []),
             },
             payments: loan.payments.map(p => ({
                 id: p.id,
