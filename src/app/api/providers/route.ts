@@ -13,7 +13,7 @@ const safeJsonParse = (jsonString: string | null | undefined, defaultValue: any)
 
 export async function GET() {
   try {
-    const providers = await prisma.loanProvider.findMany({
+    const providers = await prisma.financingPartner.findMany({
         include: {
             products: {
                 orderBy: {

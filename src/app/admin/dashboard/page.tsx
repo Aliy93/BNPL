@@ -1,5 +1,4 @@
 
-
 import { DashboardClient } from '@/components/admin/dashboard-client';
 import prisma from '@/lib/prisma';
 import type { LoanProvider, LedgerAccount, DashboardData } from '@/lib/types';
@@ -19,19 +18,19 @@ async function getProviderData(providerId?: string): Promise<DashboardData> {
     // Base query for ledger entries
     const ledgerEntryWhere = providerId ? { ledgerAccount: { providerId: providerId } } : {};
 
-    const loans = await prisma.loan.findMany({ 
+    const installmentPlans = await prisma.installmentPlan.findMany({ 
         where: providerFilter,
         include: { product: true }
     });
     
     const usersCount = providerId 
-        ? await prisma.loan.groupBy({
-            by: ['borrowerId'],
+        ? await prisma.installmentPlan.groupBy({
+            by: ['customerId'],
             where: { product: { providerId: providerId } },
           }).then(results => results.length)
-        : await prisma.borrower.count();
+        : await prisma.customer.count();
 
-    const providersData = await prisma.loanProvider.findMany({
+    const providersData = await prisma.financingPartner.findMany({
         where: providerWhereClause,
     });
     
@@ -71,13 +70,13 @@ async function getProviderData(providerId?: string): Promise<DashboardData> {
         penalty: aggregateLedgerBalance('Income', 'Penalty'),
     };
     
-    const totalDisbursed = loans.reduce((acc, loan) => acc + loan.loanAmount, 0);
-    const totalLoans = loans.length;
-    const paidLoans = loans.filter(l => l.repaymentStatus === 'Paid').length;
+    const totalDisbursed = installmentPlans.reduce((acc, loan) => acc + loan.loanAmount, 0);
+    const totalLoans = installmentPlans.length;
+    const paidLoans = installmentPlans.filter(l => l.repaymentStatus === 'Paid').length;
     const repaymentRate = totalLoans > 0 ? (paidLoans / totalLoans) * 100 : 0;
-    const atRiskLoans = loans.filter(l => l.repaymentStatus === 'Unpaid' && new Date(l.dueDate) < new Date()).length;
+    const atRiskLoans = installmentPlans.filter(l => l.repaymentStatus === 'Unpaid' && new Date(l.dueDate) < new Date()).length;
 
-    const dailyDisbursementResult = await prisma.loan.aggregate({
+    const dailyDisbursementResult = await prisma.installmentPlan.aggregate({
         _sum: { loanAmount: true },
         where: {
             disbursedDate: {
@@ -95,7 +94,7 @@ async function getProviderData(providerId?: string): Promise<DashboardData> {
                 gte: startOfTodayDate,
                 lt: endOfTodayDate,
             },
-             ...(providerFilter && { loan: providerFilter })
+             ...(providerFilter && { installmentPlan: providerFilter })
         }
     });
 
@@ -103,7 +102,7 @@ async function getProviderData(providerId?: string): Promise<DashboardData> {
         Array.from({ length: 7 }).map(async (_, i) => {
             const date = subDays(startOfTodayDate, 6 - i);
             const nextDate = subDays(startOfTodayDate, 5 - i);
-            const amount = await prisma.loan.aggregate({
+            const amount = await prisma.installmentPlan.aggregate({
                 _sum: { loanAmount: true },
                 where: {
                     disbursedDate: {
@@ -120,8 +119,8 @@ async function getProviderData(providerId?: string): Promise<DashboardData> {
         })
     );
 
-    const paidCount = loans.filter(l => l.repaymentStatus === 'Paid').length;
-    const unpaidCount = loans.filter(l => l.repaymentStatus === 'Unpaid' && new Date(l.dueDate) >= new Date()).length;
+    const paidCount = installmentPlans.filter(l => l.repaymentStatus === 'Paid').length;
+    const unpaidCount = installmentPlans.filter(l => l.repaymentStatus === 'Unpaid' && new Date(l.dueDate) >= new Date()).length;
     const overdueCount = atRiskLoans;
     const loanStatusData = [
         { name: 'Paid', value: paidCount },
@@ -129,34 +128,34 @@ async function getProviderData(providerId?: string): Promise<DashboardData> {
         { name: 'Overdue', value: overdueCount },
     ];
 
-    const recentActivity = await prisma.loan.findMany({
+    const recentActivity = await prisma.installmentPlan.findMany({
         where: providerFilter,
         take: 5,
         orderBy: { disbursedDate: 'desc' },
         include: { product: true }
     }).then(loans => loans.map(l => ({
         id: l.id,
-        customer: `Borrower #${l.borrowerId.substring(0,8)}...`,
+        customer: `Customer #${l.customerId.substring(0,8)}...`,
         product: l.product.name,
         status: l.repaymentStatus,
         amount: l.loanAmount,
     })));
 
-    const allProducts = await prisma.loanProduct.findMany({
+    const allProducts = await prisma.paymentPlanProduct.findMany({
         where: providerId ? { providerId: providerId } : {},
-        include: { provider: true, _count: { select: { loans: true } } }
+        include: { provider: true, _count: { select: { installmentPlans: true } } }
     });
 
     const productOverview = await Promise.all(allProducts.map(async p => {
-        const active = await prisma.loan.count({ where: { productId: p.id, repaymentStatus: 'Unpaid' } });
-        const defaulted = await prisma.loan.count({ where: { productId: p.id, repaymentStatus: 'Unpaid', dueDate: { lt: new Date() } } });
+        const active = await prisma.installmentPlan.count({ where: { paymentPlanProductId: p.id, repaymentStatus: 'Unpaid' } });
+        const defaulted = await prisma.installmentPlan.count({ where: { paymentPlanProductId: p.id, repaymentStatus: 'Unpaid', dueDate: { lt: new Date() } } });
         return {
             name: p.name,
             provider: p.provider.name,
             active,
             defaulted,
-            total: p._count.loans,
-            defaultRate: p._count.loans > 0 ? (defaulted / p._count.loans) * 100 : 0
+            total: p._count.installmentPlans,
+            defaultRate: p._count.installmentPlans > 0 ? (defaulted / p._count.installmentPlans) * 100 : 0
         };
     }));
 
@@ -187,17 +186,17 @@ export async function getDashboardData(userId: string): Promise<{
 }> {
     const user = await prisma.user.findUnique({
         where: { id: userId },
-        include: { loanProvider: true }
+        include: { financingPartner: true }
     });
 
     const isSuperAdminOrAdmin = user?.role === 'Super Admin' || user?.role === 'Admin';
     
     // For non-admins, get their specific provider or an empty array
     const providers = isSuperAdminOrAdmin
-        ? await prisma.loanProvider.findMany()
-        : (user?.loanProvider ? [user.loanProvider] : []);
+        ? await prisma.financingPartner.findMany()
+        : (user?.financingPartner ? [user.financingPartner] : []);
 
-    const overallData = await getProviderData(isSuperAdminOrAdmin ? undefined : user?.loanProvider?.id);
+    const overallData = await getProviderData(isSuperAdminOrAdmin ? undefined : user?.financingPartner?.id);
     
     let providerSpecificData: Record<string, DashboardData> = {};
 
@@ -207,8 +206,8 @@ export async function getDashboardData(userId: string): Promise<{
          results.forEach((data, index) => {
              providerSpecificData[providers[index].id] = data;
          });
-    } else if (user?.loanProvider) {
-        providerSpecificData[user.loanProvider.id] = overallData;
+    } else if (user?.financingPartner) {
+        providerSpecificData[user.financingPartner.id] = overallData;
     }
 
 

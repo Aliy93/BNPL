@@ -18,23 +18,20 @@ const normalizePhoneNumber = (phone: string): string => {
 };
 
 
-// Helper to get the most complete borrower data from provisioned sources
-async function getBorrowerDataByPhoneNumber(phoneNumber: string): Promise<Record<string, any> | null> {
+// Helper to get the most complete customer data from provisioned sources
+async function getCustomerDataByPhoneNumber(phoneNumber: string): Promise<Record<string, any> | null> {
     const normalizedTargetPhone = normalizePhoneNumber(phoneNumber);
     if (!normalizedTargetPhone) return null;
     
-    // 1. Check if there's a User with this phone number (e.g., an admin who might also be a borrower)
+    // 1. Check if there's a User with this phone number (e.g., an admin who might also be a customer)
     const user = await prisma.user.findFirst({
         where: { phoneNumber: phoneNumber }
     });
-    // This is a loose match; we need to find the actual provisioned data
+    // This is a loose match; we need to find the actual provisioned data.
     if (user) {
         // This is not enough, we need to find their provisioned data. We will proceed to check provisioned data.
     }
 
-    // Since we don't know which data type contains the phone number, we have to search all of them.
-    // This is inefficient but necessary with the current data model.
-    // A better model would have a dedicated `borrower_contacts` table.
     const provisionedDataEntries = await prisma.provisionedData.findMany({
         orderBy: { createdAt: 'desc' },
     });
@@ -53,20 +50,20 @@ async function getBorrowerDataByPhoneNumber(phoneNumber: string): Promise<Record
             if (phoneKey && standardizedData[phoneKey]) {
                  const normalizedDbPhone = normalizePhoneNumber(String(standardizedData[phoneKey]));
                  if (normalizedDbPhone === normalizedTargetPhone) {
-                     // Found a match. Now get all data for this borrower.
-                     const allDataForBorrower = await prisma.provisionedData.findMany({
-                         where: { borrowerId: entry.borrowerId },
+                     // Found a match. Now get all data for this customer.
+                     const allDataForCustomer = await prisma.provisionedData.findMany({
+                         where: { customerId: entry.customerId },
                          orderBy: { createdAt: 'desc' },
                      });
 
-                     const combinedData: Record<string, any> = { id: entry.borrowerId };
-                     for (const b_entry of allDataForBorrower) {
-                          const b_data = JSON.parse(b_entry.data as string);
-                           const b_standardizedData: Record<string, any> = {};
-                           for (const key in b_data) {
-                               b_standardizedData[toCamelCase(key)] = b_data[key];
+                     const combinedData: Record<string, any> = { id: entry.customerId };
+                     for (const c_entry of allDataForCustomer) {
+                          const c_data = JSON.parse(c_entry.data as string);
+                           const c_standardizedData: Record<string, any> = {};
+                           for (const key in c_data) {
+                               c_standardizedData[toCamelCase(key)] = c_data[key];
                            }
-                           Object.assign(combinedData, b_standardizedData);
+                           Object.assign(combinedData, c_standardizedData);
                      }
                     return combinedData;
                 }
@@ -90,16 +87,16 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const borrowerData = await getBorrowerDataByPhoneNumber(phoneNumber);
+    const customerData = await getCustomerDataByPhoneNumber(phoneNumber);
 
-    if (!borrowerData) {
+    if (!customerData) {
       return NextResponse.json({ error: 'User not found.' }, { status: 404 });
     }
 
-    return NextResponse.json(borrowerData);
+    return NextResponse.json(customerData);
 
   } catch (error) {
-    console.error('Failed to retrieve borrower:', error);
+    console.error('Failed to retrieve customer:', error);
     return NextResponse.json({ error: 'An internal server error occurred.' }, { status: 500 });
   }
 }

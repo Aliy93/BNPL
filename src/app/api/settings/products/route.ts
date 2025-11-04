@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getSession } from '@/lib/session';
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
         const logDetails = { productName: productData.name, providerId: providerId };
         await createAuditLog({ actorId: session.userId, action: 'PRODUCT_CREATE_INITIATED', entity: 'PRODUCT', details: logDetails, ipAddress, userAgent });
 
-        const newProduct = await prisma.loanProduct.create({
+        const newProduct = await prisma.paymentPlanProduct.create({
             data: {
                 providerId: providerId,
                 name: productData.name,
@@ -89,7 +90,7 @@ export async function PUT(req: NextRequest) {
             dataToUpdate.penaltyRules = JSON.stringify(updateData.penaltyRules);
         }
         
-        const updatedProduct = await prisma.loanProduct.update({
+        const updatedProduct = await prisma.paymentPlanProduct.update({
             where: { id },
             data: dataToUpdate,
             include: {
@@ -130,15 +131,14 @@ export async function DELETE(req: NextRequest) {
         const logDetails = { productId: id };
         await createAuditLog({ actorId: session.userId, action: 'PRODUCT_DELETE_INITIATED', entity: 'PRODUCT', entityId: id, details: logDetails, ipAddress, userAgent });
         
-        // Add check if product has associated loans
-        const loanCount = await prisma.loan.count({ where: { productId: id } });
+        const loanCount = await prisma.installmentPlan.count({ where: { paymentPlanProductId: id } });
         if (loanCount > 0) {
-            throw new Error('Cannot delete product. It has associated loans.');
+            throw new Error('Cannot delete product. It has associated installment plans.');
         }
         
-        const productToDelete = await prisma.loanProduct.findUnique({ where: { id }});
+        const productToDelete = await prisma.paymentPlanProduct.findUnique({ where: { id }});
 
-        await prisma.loanProduct.delete({ where: { id } });
+        await prisma.paymentPlanProduct.delete({ where: { id } });
 
         const successLogDetails = { deletedProductId: id, deletedProductName: productToDelete?.name, providerId: productToDelete?.providerId };
         await createAuditLog({ actorId: session.userId, action: 'PRODUCT_DELETE_SUCCESS', entity: 'PRODUCT', entityId: id, details: successLogDetails, ipAddress, userAgent });

@@ -17,7 +17,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     try {
-        const product = await prisma.loanProduct.findUnique({
+        const product = await prisma.paymentPlanProduct.findUnique({
             where: { id: productId }
         });
 
@@ -27,7 +27,7 @@ export async function DELETE(req: NextRequest) {
 
         await prisma.$transaction(async (tx) => {
             // First, nullify the link on the product
-            await tx.loanProduct.update({
+            await tx.paymentPlanProduct.update({
                 where: { id: productId },
                 data: {
                     eligibilityFilter: null,

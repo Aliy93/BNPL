@@ -9,16 +9,16 @@ export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const borrowerId = params.id;
+  const customerId = params.id;
 
-  if (!borrowerId) {
-    return NextResponse.json({ error: 'Borrower ID is required.' }, { status: 400 });
+  if (!customerId) {
+    return NextResponse.json({ error: 'Customer ID is required.' }, { status: 400 });
   }
 
   try {
-    const [loans, taxConfig] = await Promise.all([
-        prisma.loan.findMany({
-            where: { borrowerId: borrowerId },
+    const [installments, taxConfig] = await Promise.all([
+        prisma.installmentPlan.findMany({
+            where: { customerId: customerId },
             include: {
                 product: true,
             },
@@ -29,38 +29,38 @@ export async function GET(
         prisma.tax.findFirst()
     ]);
 
-    const formattedLoans = loans.map(loan => {
-      // The loan.product from prisma might have fee/penalty rules as JSON strings.
+    const formattedLoans = installments.map(installment => {
+      // The installment.product from prisma might have fee/penalty rules as JSON strings.
       // The calculator expects them to be parsed objects.
       const parsedProduct: LoanProduct = {
-          ...loan.product,
-          serviceFee: typeof loan.product.serviceFee === 'string' ? JSON.parse(loan.product.serviceFee) : loan.product.serviceFee,
-          dailyFee: typeof loan.product.dailyFee === 'string' ? JSON.parse(loan.product.dailyFee) : loan.product.dailyFee,
-          penaltyRules: typeof loan.product.penaltyRules === 'string' ? JSON.parse(loan.product.penaltyRules) : loan.product.penaltyRules,
-      };
+          ...installment.product,
+          serviceFee: typeof installment.product.serviceFee === 'string' ? JSON.parse(installment.product.serviceFee) : installment.product.serviceFee,
+          dailyFee: typeof installment.product.dailyFee === 'string' ? JSON.parse(installment.product.dailyFee) : installment.product.dailyFee,
+          penaltyRules: typeof installment.product.penaltyRules === 'string' ? JSON.parse(installment.product.penaltyRules) : installment.product.penaltyRules,
+      } as LoanProduct;
 
       // Use the centralized calculator with the fully parsed product data
-      const { total } = calculateTotalRepayable(loan as any, parsedProduct, taxConfig, new Date());
+      const { total } = calculateTotalRepayable(installment as any, parsedProduct, taxConfig, new Date());
       const totalRepayable = total;
 
       return {
-        id: loan.id,
-        providerId: loan.product.providerId,
-        productId: loan.productId,
-        productName: loan.product.name,
-        loanAmount: loan.loanAmount,
+        id: installment.id,
+        providerId: installment.product.providerId,
+        productId: installment.paymentPlanProductId,
+        productName: installment.product.name,
+        loanAmount: installment.loanAmount,
         totalRepayableAmount: totalRepayable, // Add the calculated total
-        repaidAmount: loan.repaidAmount || 0,
-        penaltyAmount: loan.penaltyAmount,
-        dueDate: loan.dueDate,
-        repaymentStatus: loan.repaymentStatus,
+        repaidAmount: installment.repaidAmount || 0,
+        penaltyAmount: installment.penaltyAmount,
+        dueDate: installment.dueDate,
+        repaymentStatus: installment.repaymentStatus,
       }
     });
 
     return NextResponse.json(formattedLoans);
 
   } catch (error) {
-    console.error('Failed to fetch loans for borrower:', error);
+    console.error('Failed to fetch loans for customer:', error);
     return NextResponse.json({ error: 'An internal server error occurred.' }, { status: 500 });
   }
 }

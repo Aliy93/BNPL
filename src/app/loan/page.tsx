@@ -17,7 +17,7 @@ const safeJsonParse = (jsonString: string | null | undefined, defaultValue: any)
 
 async function getProviders(): Promise<LoanProvider[]> {
     try {
-        const providers = await prisma.loanProvider.findMany({
+        const providers = await prisma.financingPartner.findMany({
             include: {
                 products: {
                     where: {
@@ -43,6 +43,7 @@ async function getProviders(): Promise<LoanProvider[]> {
             startingCapital: p.startingCapital,
             initialBalance: p.initialBalance,
             allowCrossProviderLoans: p.allowCrossProviderLoans,
+            nplThresholdDays: p.nplThresholdDays,
             products: p.products.map(prod => ({
                 id: prod.id,
                 providerId: p.id,
@@ -65,12 +66,12 @@ async function getProviders(): Promise<LoanProvider[]> {
     }
 }
 
-async function getLoanHistory(borrowerId: string): Promise<LoanDetails[]> {
+async function getLoanHistory(customerId: string): Promise<LoanDetails[]> {
     try {
-        if (!borrowerId) return [];
+        if (!customerId) return [];
 
-        const loans = await prisma.loan.findMany({
-            where: { borrowerId },
+        const loans = await prisma.installmentPlan.findMany({
+            where: { customerId },
             include: {
                 product: {
                     include: {
@@ -90,7 +91,7 @@ async function getLoanHistory(borrowerId: string): Promise<LoanDetails[]> {
 
         return loans.map(loan => ({
             id: loan.id,
-            borrowerId: loan.borrowerId,
+            borrowerId: loan.customerId,
             providerName: loan.product.provider.name,
             productName: loan.product.name,
             loanAmount: loan.loanAmount,
@@ -127,11 +128,11 @@ async function getTaxConfig(): Promise<Tax | null> {
 
 
 export default async function LoanPage({ searchParams }: { searchParams: { [key: string]: string | string[] | undefined }}) {
-    const borrowerId = searchParams['borrowerId'] as string;
+    const customerId = searchParams['borrowerId'] as string;
     
     const [providers, loanHistory, taxConfig] = await Promise.all([
         getProviders(),
-        getLoanHistory(borrowerId),
+        getLoanHistory(customerId),
         getTaxConfig(),
     ]);
     

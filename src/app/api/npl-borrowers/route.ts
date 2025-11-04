@@ -10,12 +10,12 @@ export async function GET(req: NextRequest) {
     }
     
     try {
-        const borrowers = await prisma.borrower.findMany({
+        const customers = await prisma.customer.findMany({
             where: {
                 status: 'NPL'
             },
             include: {
-                loans: {
+                installmentPlans: {
                     where: {
                         repaymentStatus: 'Unpaid'
                     },
@@ -27,10 +27,11 @@ export async function GET(req: NextRequest) {
                 }
             }
         });
-        return NextResponse.json(borrowers);
+        const renamedCustomers = customers.map(c => ({...c, loans: c.installmentPlans}));
+        return NextResponse.json(renamedCustomers);
 
     } catch (error) {
-        console.error('Failed to fetch NPL borrowers:', error);
+        console.error('Failed to fetch NPL customers:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

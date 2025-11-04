@@ -1,5 +1,4 @@
 
-
 import { SettingsClient } from '@/components/admin/settings-client';
 import type { LoanProvider as LoanProviderType, Tax } from '@/lib/types';
 import prisma from '@/lib/prisma';
@@ -8,14 +7,14 @@ import { getUserFromSession } from '@/lib/user';
 async function getProviders(userId: string): Promise<LoanProviderType[]> {
     const user = await prisma.user.findUnique({
         where: { id: userId },
-        include: { loanProvider: true }
+        include: { financingPartner: true }
     });
 
     const whereClause = (user?.role === 'Super Admin' || user?.role === 'Admin')
         ? {}
-        : { id: user?.loanProvider?.id };
+        : { id: user?.financingPartner?.id };
 
-    const providers = await prisma.loanProvider.findMany({
+    const providers = await prisma.financingPartner.findMany({
         where: whereClause,
         include: {
             products: {
@@ -61,7 +60,7 @@ async function getProviders(userId: string): Promise<LoanProviderType[]> {
 async function getTaxConfig(): Promise<Tax> {
     let config = await prisma.tax.findFirst();
     if (!config) {
-        config = { id: 'default', rate: 0, appliedTo: '[]' };
+        config = { id: 'default', rate: 0, appliedTo: '[]', name: 'Tax' };
     }
     return config as Tax;
 }
@@ -77,7 +76,3 @@ export default async function AdminSettingsPage() {
 
     return <SettingsClient initialProviders={providers} initialTaxConfig={taxConfig} />;
 }
-
-
-
-

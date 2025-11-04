@@ -1,5 +1,4 @@
 
-
 import { AuthProvider } from '@/hooks/use-auth';
 import { ProtectedLayout } from '@/components/admin/protected-layout';
 import type { LoanProvider as LoanProviderType } from '@/lib/types';

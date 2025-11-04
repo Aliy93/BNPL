@@ -1,5 +1,4 @@
 
-
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getSession } from '@/lib/session';
@@ -82,21 +81,21 @@ export async function POST(req: NextRequest) {
                     newRowData[header] = row[index];
                 });
                 
-                const borrowerId = String(newRowData[idColumnCamelCase]);
-                if (!borrowerId) continue;
+                const customerId = String(newRowData[idColumnCamelCase]);
+                if (!customerId) continue;
 
-                // 1. Upsert the borrower record first to ensure it exists
-                await tx.borrower.upsert({
-                    where: { id: borrowerId },
+                // 1. Upsert the customer record first to ensure it exists
+                await tx.customer.upsert({
+                    where: { id: customerId },
                     update: {},
-                    create: { id: borrowerId }
+                    create: { id: customerId }
                 });
 
                 // 2. Now upsert the provisioned data, merging if it exists
                 const existingData = await tx.provisionedData.findUnique({
                      where: {
-                        borrowerId_configId: {
-                            borrowerId: borrowerId,
+                        customerId_configId: {
+                            customerId: customerId,
                             configId: configId
                         }
                     },
@@ -110,8 +109,8 @@ export async function POST(req: NextRequest) {
 
                 await tx.provisionedData.upsert({
                     where: {
-                        borrowerId_configId: {
-                            borrowerId: borrowerId,
+                        customerId_configId: {
+                            customerId: customerId,
                             configId: configId
                         }
                     },
@@ -120,7 +119,7 @@ export async function POST(req: NextRequest) {
                         uploadId: newUpload.id,
                     },
                     create: {
-                        borrowerId: borrowerId,
+                        customerId: customerId,
                         configId: configId,
                         data: JSON.stringify(mergedData),
                         uploadId: newUpload.id,
@@ -130,7 +129,7 @@ export async function POST(req: NextRequest) {
         });
         
         if (isProductFilter && productId) {
-             await prisma.loanProduct.update({
+             await prisma.paymentPlanProduct.update({
                 where: { id: productId },
                 data: {
                     eligibilityUploadId: newUpload.id,
@@ -166,7 +165,7 @@ export async function POST(req: NextRequest) {
              return NextResponse.json({ error: 'Duplicate data entry found in file. Please ensure identifiers are unique within the file.' }, { status: 400 });
         }
         if (error.code === 'P2003') { // Foreign key constraint
-            return NextResponse.json({ error: `Foreign key constraint failed. This may be because a borrower ID in your file does not exist. The system tried to create it but failed. Please check your data.` }, { status: 400 });
+            return NextResponse.json({ error: `Foreign key constraint failed. This may be because a customer ID in your file does not exist. The system tried to create it but failed. Please check your data.` }, { status: 400 });
         }
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
@@ -230,4 +229,3 @@ export async function DELETE(req: NextRequest) {
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
-    
