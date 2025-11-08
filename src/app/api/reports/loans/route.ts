@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, differenceInDays, isValid } from 'date-fns';
 import { calculateTotalRepayable } from '@/lib/loan-calculator';
-import type { Loan, LoanProduct, Payment, ProvisionedData } from '@prisma/client';
+import type { InstallmentPlan, PaymentPlanProduct, Payment, ProvisionedData } from '@prisma/client';
 
 const getDates = (timeframe: string, from?: string, to?: string) => {
     if (from && to) {
@@ -29,21 +29,21 @@ const getDates = (timeframe: string, from?: string, to?: string) => {
     }
 };
 
-type LoanWithRelations = Loan & {
-    product: LoanProduct & { provider: { name: string } };
+type InstallmentPlanWithRelations = InstallmentPlan & {
+    paymentPlanProduct: PaymentPlanProduct & { provider: { name: string } };
     payments: Payment[];
-    borrower: {
+    customer: {
         id: string;
         provisionedData: ProvisionedData[];
      };
 };
 
-const getBorrowerName = (borrower: { provisionedData: ProvisionedData[] }): string => {
-    if (!borrower || !borrower.provisionedData || borrower.provisionedData.length === 0) {
+const getCustomerName = (customer: { provisionedData: ProvisionedData[] }): string => {
+    if (!customer || !customer.provisionedData || customer.provisionedData.length === 0) {
         return 'N/A';
     }
     // Find the latest provisioned data that might have a name
-    for (const entry of borrower.provisionedData) {
+    for (const entry of customer.provisionedData) {
          try {
             const data = JSON.parse(entry.data as string);
             const fullNameKey = Object.keys(data).find(k => k.toLowerCase() === 'fullname' || k.toLowerCase() === 'full name');
@@ -76,23 +76,22 @@ export async function GET(req: NextRequest) {
     }
 
     if (providerId && providerId !== 'all') {
-        whereClause.product = { providerId };
+        whereClause.paymentPlanProduct = { providerId };
     }
 
     try {
-        const [loans, taxConfig] = await Promise.all([
-            prisma.loan.findMany({
+        const [installments, taxConfig] = await Promise.all([
+            prisma.installmentPlan.findMany({
                 where: whereClause,
                 include: {
-                    product: {
+                    paymentPlanProduct: {
                         include: {
                             provider: true,
                         },
                     },
                     payments: true,
-                    borrower: {
+                    customer: {
                        include: {
-                            // Include all provisioned data and sort by latest, we'll find the name in code.
                             provisionedData: {
                                 orderBy: {
                                     createdAt: 'desc'
@@ -109,12 +108,11 @@ export async function GET(req: NextRequest) {
         ]);
         
         const today = new Date();
-        const reportData = loans.map(loan => {
-            const { total, principal, interest, penalty, serviceFee } = calculateTotalRepayable(loan as any, loan.product, taxConfig, today);
+        const reportData = installments.map(installment => {
+            const { total, principal, interest, penalty, serviceFee } = calculateTotalRepayable(installment as any, installment.paymentPlanProduct, taxConfig, today);
             
-            const totalRepaid = (loan.repaidAmount || 0);
+            const totalRepaid = (installment.repaidAmount || 0);
 
-            // Correct calculation for outstanding amounts
             const penaltyPaid = Math.min(totalRepaid, penalty);
             const penaltyOutstanding = penalty - penaltyPaid;
 
@@ -131,24 +129,24 @@ export async function GET(req: NextRequest) {
 
 
             let status = 'Current';
-            const daysInArrears = differenceInDays(today, loan.dueDate);
-            if (loan.repaymentStatus === 'Unpaid' && daysInArrears > 0) {
+            const daysInArrears = differenceInDays(today, installment.dueDate);
+            if (installment.repaymentStatus === 'Unpaid' && daysInArrears > 0) {
                 status = 'Overdue';
-                if (daysInArrears > 60) { // Example for NPL/Defaulted
+                if (daysInArrears > 60) {
                     status = 'Defaulted';
                 }
-            } else if (loan.repaymentStatus === 'Paid') {
+            } else if (installment.repaymentStatus === 'Paid') {
                 status = 'Paid';
             }
             
-            const borrowerName = getBorrowerName(loan.borrower);
+            const customerName = getCustomerName(installment.customer);
             
             return {
-                provider: loan.product.provider.name,
-                loanId: loan.id,
-                borrowerId: loan.borrowerId,
-                borrowerName: borrowerName !== 'N/A' ? borrowerName : `B-${loan.borrowerId.slice(0, 4)}`,
-                principalDisbursed: loan.loanAmount,
+                provider: installment.paymentPlanProduct.provider.name,
+                loanId: installment.id,
+                borrowerId: installment.customerId,
+                borrowerName: customerName !== 'N/A' ? customerName : `C-${installment.customerId.slice(0, 4)}`,
+                principalDisbursed: installment.loanAmount,
                 principalOutstanding,
                 interestOutstanding,
                 serviceFeeOutstanding,
