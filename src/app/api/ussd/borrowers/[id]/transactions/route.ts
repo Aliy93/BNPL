@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { format } from 'date-fns';
@@ -6,17 +7,17 @@ export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const borrowerId = params.id;
+  const customerId = params.id;
 
-  if (!borrowerId) {
-    return NextResponse.json({ error: 'Borrower ID is required.' }, { status: 400 });
+  if (!customerId) {
+    return NextResponse.json({ error: 'Customer ID is required.' }, { status: 400 });
   }
 
   try {
-    const loans = await prisma.loan.findMany({
-      where: { borrowerId: borrowerId },
+    const installmentPlans = await prisma.installmentPlan.findMany({
+      where: { customerId: customerId },
       include: {
-        product: true,
+        paymentPlanProduct: true,
         payments: {
           orderBy: {
             date: 'asc'
@@ -30,16 +31,16 @@ export async function GET(
 
     const transactions = [];
 
-    for (const loan of loans) {
+    for (const plan of installmentPlans) {
       // Loan Disbursement
       transactions.push({
-        date: format(new Date(loan.disbursedDate), 'yyyy-MM-dd'),
-        description: `Loan disbursement for ${loan.product.name}`,
-        amount: loan.loanAmount,
+        date: format(new Date(plan.disbursedDate), 'yyyy-MM-dd'),
+        description: `Loan disbursement for ${plan.paymentPlanProduct.name}`,
+        amount: plan.loanAmount,
       });
 
       // Repayments for that loan
-      for (const payment of loan.payments) {
+      for (const payment of plan.payments) {
         transactions.push({
           date: format(new Date(payment.date), 'yyyy-MM-dd'),
           description: 'Repayment',
@@ -55,7 +56,7 @@ export async function GET(
     return NextResponse.json(transactions);
 
   } catch (error) {
-    console.error('Failed to fetch transactions for borrower:', error);
+    console.error('Failed to fetch transactions for customer:', error);
     return NextResponse.json({ error: 'An internal server error occurred.' }, { status: 500 });
   }
 }
