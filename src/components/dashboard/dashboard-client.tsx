@@ -441,5 +441,3 @@ export function DashboardClient({ providers, initialLoanHistory, taxConfig }: Da
     </>
   );
 }
-
-    
