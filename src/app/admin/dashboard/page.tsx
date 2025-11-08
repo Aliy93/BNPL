@@ -12,7 +12,7 @@ async function getProviderData(providerId?: string): Promise<DashboardData> {
     const startOfTodayDate = startOfToday(today);
     const endOfTodayDate = endOfToday(today);
 
-    const providerFilter = providerId ? { product: { providerId: providerId }} : {};
+    const providerFilter = providerId ? { paymentPlanProduct: { providerId: providerId }} : {};
     const providerWhereClause = providerId ? { id: providerId } : {};
     
     // Base query for ledger entries
@@ -20,13 +20,13 @@ async function getProviderData(providerId?: string): Promise<DashboardData> {
 
     const installmentPlans = await prisma.installmentPlan.findMany({ 
         where: providerFilter,
-        include: { product: true }
+        include: { paymentPlanProduct: true }
     });
     
     const usersCount = providerId 
         ? await prisma.installmentPlan.groupBy({
             by: ['customerId'],
-            where: { product: { providerId: providerId } },
+            where: { paymentPlanProduct: { providerId: providerId } },
           }).then(results => results.length)
         : await prisma.customer.count();
 
@@ -83,7 +83,7 @@ async function getProviderData(providerId?: string): Promise<DashboardData> {
                 gte: startOfTodayDate,
                 lt: endOfTodayDate,
             },
-            ...(providerFilter && { product: providerFilter.product })
+            ...(providerFilter && { paymentPlanProduct: providerFilter.paymentPlanProduct })
         },
     });
 
@@ -109,7 +109,7 @@ async function getProviderData(providerId?: string): Promise<DashboardData> {
                         gte: date,
                         lt: nextDate,
                     },
-                    ...(providerFilter && { product: providerFilter.product })
+                    ...(providerFilter && { paymentPlanProduct: providerFilter.paymentPlanProduct })
                 },
             });
             return {
@@ -132,11 +132,11 @@ async function getProviderData(providerId?: string): Promise<DashboardData> {
         where: providerFilter,
         take: 5,
         orderBy: { disbursedDate: 'desc' },
-        include: { product: true }
+        include: { paymentPlanProduct: true }
     }).then(loans => loans.map(l => ({
         id: l.id,
         customer: `Customer #${l.customerId.substring(0,8)}...`,
-        product: l.product.name,
+        product: l.paymentPlanProduct.name,
         status: l.repaymentStatus,
         amount: l.loanAmount,
     })));
