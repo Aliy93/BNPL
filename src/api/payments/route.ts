@@ -14,27 +14,27 @@ const paymentSchema = z.object({
 
 export async function POST(req: NextRequest) {
     let paymentDetailsForLogging: any = {};
-    let borrowerIdForLogging: string | null = null;
+    let customerIdForLogging: string | null = null;
     try {
         const body = await req.json();
         const { loanId, amount: paymentAmount } = paymentSchema.parse(body);
         paymentDetailsForLogging = { loanId, amount: paymentAmount };
         
-        const loanForBorrowerId = await prisma.loan.findUnique({ where: { id: loanId }, select: { borrowerId: true }});
-        borrowerIdForLogging = loanForBorrowerId?.borrowerId || null;
+        const loanForCustomerId = await prisma.installmentPlan.findUnique({ where: { id: loanId }, select: { customerId: true }});
+        customerIdForLogging = loanForCustomerId?.customerId || null;
 
-        await createAuditLog({ actorId: borrowerIdForLogging || 'unknown', action: 'REPAYMENT_INITIATED', entity: 'LOAN', entityId: loanId, details: paymentDetailsForLogging });
+        await createAuditLog({ actorId: customerIdForLogging || 'unknown', action: 'REPAYMENT_INITIATED', entity: 'INSTALLMENT_PLAN', entityId: loanId, details: paymentDetailsForLogging });
         console.log(JSON.stringify({
             action: 'REPAYMENT_INITIATED',
-            actorId: borrowerIdForLogging,
+            actorId: customerIdForLogging,
             details: paymentDetailsForLogging
         }));
 
-        const [loan, taxConfig] = await Promise.all([
-            prisma.loan.findUnique({
+        const [installment, taxConfig] = await Promise.all([
+            prisma.installmentPlan.findUnique({
                 where: { id: loanId },
                 include: { 
-                    product: {
+                    paymentPlanProduct: {
                         include: {
                             provider: {
                                 include: {
@@ -49,27 +49,24 @@ export async function POST(req: NextRequest) {
         ]);
 
 
-        if (!loan) {
-            throw new Error('Loan not found');
+        if (!installment) {
+            throw new Error('Installment plan not found');
         }
         
-        const provider = loan.product.provider;
+        const provider = installment.paymentPlanProduct.provider;
         const paymentDate = new Date();
         
-        const { total, principal, interest, penalty, serviceFee, tax } = calculateTotalRepayable(loan as any, loan.product, taxConfig, paymentDate);
-        const alreadyRepaid = loan.repaidAmount || 0;
+        const { total, principal, interest, penalty, serviceFee, tax } = calculateTotalRepayable(installment as any, installment.paymentPlanProduct, taxConfig, paymentDate);
+        const alreadyRepaid = installment.repaidAmount || 0;
         
         const totalDue = total - alreadyRepaid;
         
-        const penaltyDue = Math.max(0, penalty - (loan.repaidAmount || 0));
-        const serviceFeeDue = Math.max(0, serviceFee - Math.max(0, (loan.repaidAmount || 0) - penalty));
-        const interestDue = Math.max(0, interest - Math.max(0, (loan.repaidAmount || 0) - penalty - serviceFee));
-        const principalDue = Math.max(0, principal - Math.max(0, (loan.repaidAmount || 0) - penalty - serviceFee - interest));
+        const penaltyDue = Math.max(0, penalty - (installment.repaidAmount || 0));
+        const serviceFeeDue = Math.max(0, serviceFee - Math.max(0, (installment.repaidAmount || 0) - penalty));
+        const interestDue = Math.max(0, interest - Math.max(0, (installment.repaidAmount || 0) - penalty - serviceFee));
+        const principalDue = Math.max(0, principal - Math.max(0, (installment.repaidAmount || 0) - penalty - serviceFee - interest));
         
-        // Calculate tax for each component
-        const taxAppliedTo = taxConfig?.appliedTo ? JSON.parse(taxConfig.appliedTo) : [];
-        
-        const taxDue = Math.max(0, tax - Math.max(0, (loan.repaidAmount || 0) - penalty - serviceFee - interest - principal));
+        const taxDue = Math.max(0, tax - Math.max(0, (installment.repaidAmount || 0) - penalty - serviceFee - interest - principal));
 
 
         if (paymentAmount > totalDue + 0.01) { // Add tolerance for floating point
@@ -101,9 +98,9 @@ export async function POST(req: NextRequest) {
             const journalEntry = await tx.journalEntry.create({
                 data: {
                     providerId: provider.id,
-                    loanId: loan.id,
+                    installmentPlanId: installment.id,
                     date: paymentDate,
-                    description: `Repayment of ${paymentAmount} for loan ${loan.id}`
+                    description: `Repayment of ${paymentAmount} for installment plan ${installment.id}`
                 }
             });
 
@@ -165,7 +162,7 @@ export async function POST(req: NextRequest) {
             // Create payment record
             const newPayment = await tx.payment.create({
                 data: {
-                    loanId,
+                    installmentPlanId: loanId,
                     amount: paymentAmount,
                     date: paymentDate,
                     outstandingBalanceBeforePayment: totalDue,
@@ -177,10 +174,9 @@ export async function POST(req: NextRequest) {
             const isFullyPaid = newRepaidAmount >= total;
             let repaymentBehavior: RepaymentBehavior | null = null;
             
-            // --- NEW: Set Repayment Behavior on final payment ---
             if (isFullyPaid) {
                 const today = startOfDay(new Date());
-                const dueDate = startOfDay(loan.dueDate);
+                const dueDate = startOfDay(installment.dueDate);
                 if (isBefore(today, dueDate)) {
                     repaymentBehavior = 'EARLY';
                 } else if (isEqual(today, dueDate)) {
@@ -189,29 +185,28 @@ export async function POST(req: NextRequest) {
                     repaymentBehavior = 'LATE';
                 }
             }
-            // --- END NEW ---
 
             // Update loan status
-            const finalLoan = await tx.loan.update({
+            const finalLoan = await tx.installmentPlan.update({
                 where: { id: loanId },
                 data: {
                     repaidAmount: newRepaidAmount,
                     repaymentStatus: isFullyPaid ? 'Paid' : 'Unpaid',
-                    ...(repaymentBehavior && { repaymentBehavior: repaymentBehavior }), // Only set if not null
+                    ...(repaymentBehavior && { repaymentBehavior: repaymentBehavior }),
                 },
                 include: {
                     payments: { orderBy: { date: 'asc' } },
-                    product: true,
+                    paymentPlanProduct: true,
                 }
             });
             
              const logDetails = {
-                loanId: loan.id,
+                installmentPlanId: installment.id,
                 paymentId: newPayment.id,
                 amount: paymentAmount,
                 repaymentStatus: finalLoan.repaymentStatus,
              };
-             await createAuditLog({ actorId: loan.borrowerId, action: 'REPAYMENT_SUCCESS', entity: 'LOAN', entityId: loan.id, details: logDetails });
+             await createAuditLog({ actorId: installment.customerId, action: 'REPAYMENT_SUCCESS', entity: 'INSTALLMENT_PLAN', entityId: installment.id, details: logDetails });
              console.log(JSON.stringify({ ...logDetails, action: 'REPAYMENT_SUCCESS' }));
             
             return finalLoan;
@@ -225,7 +220,7 @@ export async function POST(req: NextRequest) {
             ...paymentDetailsForLogging,
             error: errorMessage,
         };
-        await createAuditLog({ actorId: borrowerIdForLogging || 'unknown', action: 'REPAYMENT_FAILED', entity: 'LOAN', entityId: paymentDetailsForLogging.loanId, details: failureLogDetails });
+        await createAuditLog({ actorId: customerIdForLogging || 'unknown', action: 'REPAYMENT_FAILED', entity: 'INSTALLMENT_PLAN', entityId: paymentDetailsForLogging.loanId, details: failureLogDetails });
         console.error(JSON.stringify({ ...failureLogDetails, action: 'REPAYMENT_FAILED' }));
 
         if (error instanceof z.ZodError) {

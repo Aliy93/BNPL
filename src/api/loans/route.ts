@@ -11,16 +11,16 @@ import { createAuditLog } from '@/lib/audit-log';
 
 async function handlePersonalLoan(data: z.infer<typeof loanCreationSchema>) {
     return await prisma.$transaction(async (tx) => {
-        const loanApplication = await tx.loanApplication.create({
+        const financingRequest = await tx.financingRequest.create({
             data: {
-                borrowerId: data.borrowerId,
-                productId: data.productId,
+                customerId: data.borrowerId,
+                paymentPlanProductId: data.productId,
                 loanAmount: data.loanAmount,
                 status: 'DISBURSED',
             }
         });
 
-        const product = await tx.loanProduct.findUnique({
+        const product = await tx.paymentPlanProduct.findUnique({
             where: { id: data.productId },
             include: {
                 provider: {
@@ -55,7 +55,7 @@ async function handlePersonalLoan(data: z.infer<typeof loanCreationSchema>) {
             penaltyAmount: 0,
             product: product as any,
         };
-        const { serviceFee: calculatedServiceFee } = calculateTotalRepayable(tempLoanForCalc, product, new Date(data.disbursedDate));
+        const { serviceFee: calculatedServiceFee } = calculateTotalRepayable(tempLoanForCalc, product, null, new Date(data.disbursedDate));
 
         const principalReceivableAccount = provider.ledgerAccounts.find((acc: any) => acc.category === 'Principal' && acc.type === 'Receivable');
         const serviceFeeReceivableAccount = provider.ledgerAccounts.find((acc: any) => acc.category === 'ServiceFee' && acc.type === 'Receivable');
@@ -64,11 +64,11 @@ async function handlePersonalLoan(data: z.infer<typeof loanCreationSchema>) {
         if (calculatedServiceFee > 0 && (!serviceFeeReceivableAccount || !serviceFeeIncomeAccount)) throw new Error('Service Fee ledger accounts not configured.');
 
 
-        const createdLoan = await tx.loan.create({
+        const createdLoan = await tx.installmentPlan.create({
             data: {
-                borrowerId: data.borrowerId,
-                productId: data.productId,
-                loanApplicationId: loanApplication.id,
+                customerId: data.borrowerId,
+                paymentPlanProductId: data.productId,
+                financingRequestId: financingRequest.id,
                 loanAmount: data.loanAmount,
                 disbursedDate: data.disbursedDate,
                 dueDate: data.dueDate,
@@ -82,9 +82,9 @@ async function handlePersonalLoan(data: z.infer<typeof loanCreationSchema>) {
         const journalEntry = await tx.journalEntry.create({
             data: {
                 providerId: provider.id,
-                loanId: createdLoan.id,
+                installmentPlanId: createdLoan.id,
                 date: new Date(data.disbursedDate),
-                description: `Loan disbursement for ${product.name} to borrower ${data.borrowerId}`,
+                description: `Loan disbursement for ${product.name} to customer ${data.borrowerId}`,
             }
         });
         
@@ -109,7 +109,7 @@ async function handlePersonalLoan(data: z.infer<typeof loanCreationSchema>) {
         }
 
         await tx.ledgerAccount.update({ where: { id: principalReceivableAccount.id }, data: { balance: { increment: data.loanAmount } } });
-        await tx.loanProvider.update({ where: { id: provider.id }, data: { initialBalance: { decrement: data.loanAmount } } });
+        await tx.financingPartner.update({ where: { id: provider.id }, data: { initialBalance: { decrement: data.loanAmount } } });
         
         return createdLoan;
     });
@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
         const data = loanCreationSchema.parse(body);
         loanDetailsForLogging = { ...data };
 
-        const product = await prisma.loanProduct.findUnique({
+        const product = await prisma.paymentPlanProduct.findUnique({
             where: { id: data.productId },
         });
         
@@ -133,8 +133,8 @@ export async function POST(req: NextRequest) {
             throw new Error('Loan product not found.');
         }
 
-        const logDetails = { borrowerId: data.borrowerId, productId: data.productId, amount: data.loanAmount };
-        await createAuditLog({ actorId: 'system', action: 'LOAN_DISBURSEMENT_INITIATED', entity: 'LOAN', details: logDetails });
+        const logDetails = { customerId: data.borrowerId, productId: data.productId, amount: data.loanAmount };
+        await createAuditLog({ actorId: 'system', action: 'LOAN_DISBURSEMENT_INITIATED', entity: 'INSTALLMENT_PLAN', details: logDetails });
 
         const { isEligible, maxLoanAmount, reason } = await checkLoanEligibility(data.borrowerId, product.providerId, product.id);
 
@@ -149,13 +149,13 @@ export async function POST(req: NextRequest) {
         const newLoan = await handlePersonalLoan(data);
 
         const successLogDetails = {
-            loanId: newLoan.id,
-            borrowerId: newLoan.borrowerId,
-            productId: newLoan.productId,
+            installmentPlanId: newLoan.id,
+            customerId: newLoan.customerId,
+            productId: newLoan.paymentPlanProductId,
             amount: newLoan.loanAmount,
             serviceFee: newLoan.serviceFee,
         };
-        await createAuditLog({ actorId: 'system', action: 'LOAN_DISBURSEMENT_SUCCESS', entity: 'LOAN', entityId: newLoan.id, details: successLogDetails });
+        await createAuditLog({ actorId: 'system', action: 'LOAN_DISBURSEMENT_SUCCESS', entity: 'INSTALLMENT_PLAN', entityId: newLoan.id, details: successLogDetails });
 
         return NextResponse.json(newLoan, { status: 201 });
 
@@ -165,7 +165,7 @@ export async function POST(req: NextRequest) {
             ...loanDetailsForLogging,
             error: errorMessage,
         };
-        await createAuditLog({ actorId: 'system', action: 'LOAN_DISBURSEMENT_FAILED', entity: 'LOAN', details: failureLogDetails });
+        await createAuditLog({ actorId: 'system', action: 'LOAN_DISBURSEMENT_FAILED', entity: 'INSTALLMENT_PLAN', details: failureLogDetails });
 
         if (error instanceof z.ZodError) {
             return NextResponse.json({ error: error.errors }, { status: 400 });
