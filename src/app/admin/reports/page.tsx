@@ -1,5 +1,4 @@
 
-
 import { ReportsClient } from '@/components/admin/reports-client';
 import type { LoanProvider as LoanProviderType, LoanReportData, CollectionsReportData, IncomeReportData } from '@/lib/types';
 import prisma from '@/lib/prisma';
@@ -14,14 +13,14 @@ async function getProviders(userId: string): Promise<LoanProviderType[]> {
     const isSuperAdminOrRecon = user?.role === 'Super Admin' || user?.role === 'Reconciliation';
 
     if (isSuperAdminOrRecon) {
-        return (await prisma.loanProvider.findMany({
+        return (await prisma.financingPartner.findMany({
             orderBy: { displayOrder: 'asc' }
         })) as LoanProviderType[];
     }
     
-    if (user?.loanProviderId) {
-        const provider = await prisma.loanProvider.findUnique({
-            where: { id: user.loanProviderId }
+    if (user?.financingPartnerId) {
+        const provider = await prisma.financingPartner.findUnique({
+            where: { id: user.financingPartnerId }
         });
         return provider ? [provider] as LoanProviderType[] : [];
     }

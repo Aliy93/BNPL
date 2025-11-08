@@ -129,8 +129,8 @@ export function ReportsClient({ providers }: { providers: LoanProvider[] }) {
         let initialProviderId: string | null = null;
         if (isSuperAdminOrRecon) {
             initialProviderId = 'all';
-        } else if (currentUser?.providerId) {
-            initialProviderId = currentUser.providerId;
+        } else if (currentUser?.financingPartnerId) {
+            initialProviderId = currentUser.financingPartnerId;
         } else if (providers.length > 0) {
             // This case might be for other roles that see reports but aren't super admin
             initialProviderId = 'all';
@@ -146,7 +146,7 @@ export function ReportsClient({ providers }: { providers: LoanProvider[] }) {
             setIsLoading(false);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isAuthLoading, currentUser?.providerId, isSuperAdminOrRecon]);
+    }, [isAuthLoading, currentUser?.financingPartnerId, isSuperAdminOrRecon]);
     
     // Effect to refetch data when filters change, but not on initial load
     useEffect(() => {

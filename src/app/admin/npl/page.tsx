@@ -88,7 +88,7 @@ export default function NplManagementPage() {
              const response = await fetch('/api/borrowers', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ borrowerId: selectedBorrower.id, status: 'Active' }),
+                body: JSON.stringify({ customerId: selectedBorrower.id, status: 'Active' }),
             });
             if (!response.ok) {
                 const errorData = await response.json();
