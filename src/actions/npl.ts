@@ -17,7 +17,7 @@ export async function updateNplStatus(): Promise<{ success: boolean; message: st
         select: {
             id: true,
             nplThresholdDays: true,
-            products: {
+            paymentPlans: {
                 select: {
                     id: true
                 }
@@ -34,7 +34,7 @@ export async function updateNplStatus(): Promise<{ success: boolean; message: st
     
     for (const provider of providers) {
         const nplThresholdDate = subDays(new Date(), provider.nplThresholdDays);
-        const productIds = provider.products.map(p => p.id);
+        const productIds = provider.paymentPlans.map(p => p.id);
 
         if (productIds.length === 0) continue;
 

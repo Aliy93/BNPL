@@ -47,7 +47,7 @@ export async function processAutomatedRepayments(): Promise<{ success: boolean; 
             },
         },
         include: {
-            product: {
+            paymentPlanProduct: {
                 include: {
                     provider: {
                         include: {
@@ -67,7 +67,7 @@ export async function processAutomatedRepayments(): Promise<{ success: boolean; 
     let processedCount = 0;
 
     for (const installment of overdueInstallments) {
-        const { total, principal, interest, penalty, serviceFee } = calculateTotalRepayable(installment as any, installment.product, taxConfig, today);
+        const { total, principal, interest, penalty, serviceFee } = calculateTotalRepayable(installment as any, installment.paymentPlanProduct, taxConfig, today);
         const alreadyRepaid = installment.repaidAmount || 0;
         const totalDue = total - alreadyRepaid;
 
@@ -80,7 +80,7 @@ export async function processAutomatedRepayments(): Promise<{ success: boolean; 
         if (customerBalance >= totalDue) {
             try {
                 await prisma.$transaction(async (tx) => {
-                    const provider = installment.product.provider;
+                    const provider = installment.paymentPlanProduct.provider;
                     
                     // Ledger Accounts
                     const principalReceivable = provider.ledgerAccounts.find(a => a.category === 'Principal' && a.type === 'Receivable');
