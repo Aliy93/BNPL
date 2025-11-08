@@ -40,11 +40,10 @@ export async function POST(req: NextRequest) {
         
         const logDetails = { providerName: restOfBody.name };
         await createAuditLog({ actorId: session.userId, action: 'PROVIDER_CREATE_INITIATED', entity: 'PROVIDER', details: logDetails, ipAddress, userAgent });
-        console.log(JSON.stringify({ ...logDetails, action: 'PROVIDER_CREATE_INITIATED', actorId: session.userId }));
 
         // Use a transaction to create the provider and its ledger accounts
         const newProvider = await prisma.$transaction(async (tx) => {
-            const provider = await tx.loanProvider.create({
+            const provider = await tx.financingPartner.create({
                 data: {
                     ...restOfBody,
                     startingCapital: startingCapital,
@@ -66,14 +65,12 @@ export async function POST(req: NextRequest) {
 
         const successLogDetails = { providerId: newProvider.id, providerName: newProvider.name };
         await createAuditLog({ actorId: session.userId, action: 'PROVIDER_CREATE_SUCCESS', entity: 'PROVIDER', entityId: newProvider.id, details: successLogDetails, ipAddress, userAgent });
-        console.log(JSON.stringify({ ...successLogDetails, action: 'PROVIDER_CREATE_SUCCESS', actorId: session.userId }));
 
         return NextResponse.json(newProvider, { status: 201 });
     } catch (error) {
         const errorMessage = (error as Error).message;
         const failureLogDetails = { error: errorMessage };
         await createAuditLog({ actorId: session.userId, action: 'PROVIDER_CREATE_FAILED', entity: 'PROVIDER', details: failureLogDetails, ipAddress, userAgent });
-        console.error(JSON.stringify({ ...failureLogDetails, action: 'PROVIDER_CREATE_FAILED', actorId: session.userId }));
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
@@ -96,7 +93,6 @@ export async function PUT(req: NextRequest) {
         
         const logDetails = { providerId: id, updatedFields: Object.keys(dataToUpdate) };
         await createAuditLog({ actorId: session.userId, action: 'PROVIDER_UPDATE_INITIATED', entity: 'PROVIDER', entityId: id, details: logDetails, ipAddress, userAgent });
-        console.log(JSON.stringify({ ...logDetails, action: 'PROVIDER_UPDATE_INITIATED', actorId: session.userId }));
 
         // Do not allow startingCapital to be changed on update
         if ('startingCapital' in dataToUpdate) {
@@ -104,21 +100,19 @@ export async function PUT(req: NextRequest) {
         }
 
 
-        const updatedProvider = await prisma.loanProvider.update({
+        const updatedProvider = await prisma.financingPartner.update({
             where: { id },
             data: dataToUpdate,
         });
 
         const successLogDetails = { providerId: updatedProvider.id, updatedFields: Object.keys(dataToUpdate) };
         await createAuditLog({ actorId: session.userId, action: 'PROVIDER_UPDATE_SUCCESS', entity: 'PROVIDER', entityId: updatedProvider.id, details: successLogDetails, ipAddress, userAgent });
-        console.log(JSON.stringify({ ...successLogDetails, action: 'PROVIDER_UPDATE_SUCCESS', actorId: session.userId }));
 
         return NextResponse.json(updatedProvider);
     } catch (error) {
         const errorMessage = (error as Error).message;
         const failureLogDetails = { error: errorMessage };
         await createAuditLog({ actorId: session.userId, action: 'PROVIDER_UPDATE_FAILED', entity: 'PROVIDER', details: failureLogDetails, ipAddress, userAgent });
-        console.error(JSON.stringify({ ...failureLogDetails, action: 'PROVIDER_UPDATE_FAILED', actorId: session.userId }));
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
@@ -141,29 +135,26 @@ export async function DELETE(req: NextRequest) {
 
         const logDetails = { providerId: id };
         await createAuditLog({ actorId: session.userId, action: 'PROVIDER_DELETE_INITIATED', entity: 'PROVIDER', entityId: id, details: logDetails, ipAddress, userAgent });
-        console.log(JSON.stringify({ ...logDetails, action: 'PROVIDER_DELETE_INITIATED', actorId: session.userId }));
         
-        const productCount = await prisma.loanProduct.count({ where: { providerId: id } });
+        const productCount = await prisma.paymentPlanProduct.count({ where: { providerId: id } });
         if (productCount > 0) {
             throw new Error('Cannot delete provider with associated products.');
         }
 
-        const providerToDelete = await prisma.loanProvider.findUnique({ where: { id }});
+        const providerToDelete = await prisma.financingPartner.findUnique({ where: { id }});
         
-        await prisma.loanProvider.delete({
+        await prisma.financingPartner.delete({
             where: { id: id },
         });
 
         const successLogDetails = { deletedProviderId: id, deletedProviderName: providerToDelete?.name };
         await createAuditLog({ actorId: session.userId, action: 'PROVIDER_DELETE_SUCCESS', entity: 'PROVIDER', entityId: id, details: successLogDetails, ipAddress, userAgent });
-        console.log(JSON.stringify({ ...successLogDetails, action: 'PROVIDER_DELETE_SUCCESS', actorId: session.userId }));
 
         return NextResponse.json({ message: 'Provider deleted successfully' });
     } catch (error) {
         const errorMessage = (error as Error).message;
         const failureLogDetails = { providerId: id, error: errorMessage };
         await createAuditLog({ actorId: session.userId, action: 'PROVIDER_DELETE_FAILED', entity: 'PROVIDER', entityId: id || undefined, details: failureLogDetails, ipAddress, userAgent });
-         console.error(JSON.stringify({ ...failureLogDetails, action: 'PROVIDER_DELETE_FAILED', actorId: session.userId }));
         return NextResponse.json({ error: errorMessage || 'Internal Server Error' }, { status: 500 });
     }
 }
