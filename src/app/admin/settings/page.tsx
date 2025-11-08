@@ -17,10 +17,10 @@ async function getProviders(userId: string): Promise<LoanProviderType[]> {
     const providers = await prisma.financingPartner.findMany({
         where: whereClause,
         include: {
-            products: {
+            paymentPlanProducts: {
                 include: {
                     loanAmountTiers: true,
-                    eligibilityUpload: true, // <-- This is the critical addition
+                    eligibilityUpload: true,
                 },
                 orderBy: { name: 'asc' }
             },
@@ -48,7 +48,7 @@ async function getProviders(userId: string): Promise<LoanProviderType[]> {
     
     return providers.map(p => ({
         ...p,
-        products: p.products.map(prod => ({
+        products: p.paymentPlanProducts.map(prod => ({
             ...prod,
             serviceFee: safeJsonParse(prod.serviceFee, { type: 'percentage', value: 0 }),
             dailyFee: safeJsonParse(prod.dailyFee, { type: 'percentage', value: 0 }),
