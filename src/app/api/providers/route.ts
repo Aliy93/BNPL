@@ -15,7 +15,7 @@ export async function GET() {
   try {
     const providers = await prisma.financingPartner.findMany({
         include: {
-            products: {
+            paymentPlanProducts: {
                 orderBy: {
                     name: 'asc'
                 }
@@ -33,7 +33,7 @@ export async function GET() {
         colorHex: p.colorHex,
         displayOrder: p.displayOrder,
         accountNumber: p.accountNumber,
-        products: p.products.map(prod => ({
+        products: p.paymentPlanProducts.map(prod => ({
             id: prod.id,
             providerId: p.id,
             name: prod.name,
