@@ -1002,7 +1002,7 @@ function DataProvisioningTab({ providerId, initialConfigs, onConfigChange, allPr
                     <AlertDialogHeader>
                         <AlertDialogTitle>Delete this upload?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            This will permanently delete the file record and all {deletingUpload?.rowCount} associated borrower data rows from the database. This action cannot be undone.
+                            This will permanently delete the file record and all {deletingUpload?.rowCount} associated customer data rows from the database. This action cannot be undone.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -1267,6 +1267,7 @@ function UploadDataViewerDialog({ upload, onClose }: {
     
 
     
+
 
 
 

@@ -84,7 +84,7 @@ function UsersTab() {
         setIsDialogOpen(false);
     };
 
-    const handleSaveUser = async (userData: Omit<User, 'id'> & { id?: string; password?: string }) => {
+    const handleSaveUser = async (userData: Omit<User, 'id' | 'permissions'> & { id?: string; password?: string }) => {
         const method = editingUser ? 'PUT' : 'POST';
         const endpoint = '/api/users';
         const body = JSON.stringify(editingUser ? { ...userData, id: editingUser.id } : userData);

@@ -8,18 +8,17 @@ import { getUserFromSession } from '@/lib/user';
 async function getProviders(userId: string): Promise<LoanProvider[]> {
     const user = await prisma.user.findUnique({
         where: { id: userId },
-        include: { loanProvider: true }
+        include: { financingPartner: true }
     });
 
     const whereClause = (user?.role === 'Super Admin' || user?.role === 'Admin')
         ? {}
-        : { id: user?.loanProvider?.id };
+        : { id: user?.financingPartner?.id };
 
-    const providers = await prisma.loanProvider.findMany({
+    const providers = await prisma.financingPartner.findMany({
         where: whereClause,
         include: {
-            products: {
-                // We need eligibilityUploadId to filter these out of the general uploads list
+            paymentPlanProducts: {
                 select: {
                     id: true,
                     name: true,
@@ -54,6 +53,7 @@ async function getProviders(userId: string): Promise<LoanProvider[]> {
     // The product data is partial but sufficient for the client component's needs.
     return providers.map(p => ({
         ...p,
+        products: p.paymentPlanProducts,
         dataProvisioningConfigs: (p.dataProvisioningConfigs || []).map(config => ({
             ...config,
             columns: safeJsonParse(config.columns as string, [])
