@@ -6,8 +6,8 @@ import { z } from 'zod';
 import { toCamelCase } from '@/lib/utils';
 
 
-const updateBorrowerStatusSchema = z.object({
-  borrowerId: z.string(),
+const updateCustomerStatusSchema = z.object({
+  customerId: z.string(),
   status: z.string(),
 });
 
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     try {
         const customers = await prisma.customer.findMany({
             include: {
-                provisionedData: { // Fetch all provisioned data for each borrower
+                provisionedData: { // Fetch all provisioned data for each customer
                     orderBy: {
                         createdAt: 'desc'
                     }
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
         });
 
         const formattedCustomers = customers.map(customer => {
-            // Merge all provisioned data for a borrower into a single object
+            // Merge all provisioned data for a customer into a single object
             const combinedData = customer.provisionedData.reduce((acc, entry) => {
                 try {
                     const parsedData = JSON.parse(entry.data as string);
@@ -65,10 +65,10 @@ export async function PUT(req: NextRequest) {
 
     try {
         const body = await req.json();
-        const { borrowerId, status } = updateBorrowerStatusSchema.parse(body);
+        const { customerId, status } = updateCustomerStatusSchema.parse(body);
 
         const updatedCustomer = await prisma.customer.update({
-            where: { id: borrowerId },
+            where: { id: customerId },
             data: { status },
         });
 
