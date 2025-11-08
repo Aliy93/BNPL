@@ -20,7 +20,7 @@ import type { User, UserRole, UserStatus, Role, LoanProvider } from '@/lib/types
 interface AddUserDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (user: Omit<User, 'id'> & { password?: string }) => void;
+  onSave: (user: Omit<User, 'id' | 'permissions'> & { id?: string; password?: string }) => void;
   user: User | null;
   roles: Role[];
   providers: LoanProvider[];
@@ -75,7 +75,7 @@ export function AddUserDialog({ isOpen, onClose, onSave, user, roles, providers,
     const isProviderSpecificRole = newRole === 'Loan Provider' || newRole === 'Loan Manager';
     
     setFormData(prev => {
-        const updatedState = { ...prev, [field]: value };
+        const updatedState: any = { ...prev, [field]: value };
         
         if (field === 'role') {
             if (!isProviderSpecificRole) {

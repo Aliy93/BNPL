@@ -16,9 +16,6 @@ import { Label } from '@/components/ui/label';
 import { Building2, Landmark, Briefcase, type LucideIcon, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { LoanProvider } from '@/lib/types';
-import { IconDisplay } from '@/components/icons';
-import { Switch } from '../ui/switch';
-import { Separator } from '../ui/separator';
 
 interface AddProviderDialogProps {
   isOpen: boolean;

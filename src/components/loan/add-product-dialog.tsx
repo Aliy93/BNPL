@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -16,12 +17,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Briefcase, Home, PersonStanding, type LucideIcon, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { LoanProduct } from '@/lib/types';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 interface AddProductDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddProduct: (product: Omit<LoanProduct, 'id' | 'status' | 'serviceFee' | 'dailyFee' | 'penaltyRules' | 'providerId' > & {providerId: string}) => void;
+  onAddProduct: (product: Omit<LoanProduct, 'id' | 'status' | 'serviceFee' | 'dailyFee' | 'penaltyRules' | 'providerId' | 'requiredDocuments' | 'loanAmountTiers'>) => void;
 }
 
 const icons: { name: string; component: LucideIcon }[] = [
